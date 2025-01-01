@@ -35,12 +35,12 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.layers(x)
 
-class EncodeProcessDecode(nn.Module):
+class MeshGraphNet(nn.Module):
     def __init__(self, output_size: int, latent_size: int, num_layers: int, n_nodefeatures: int,
                  n_edgefeatures_mesh: int,
                  n_edgefeatures_world: int,
                  message_passing_steps: int):
-        """Encode-Process-Decode GraphNet model."""
+        """Encode-Process-Decode MeshGraphNet model."""
         super().__init__()
         self._latent_size = latent_size
         self._output_size = output_size
@@ -80,23 +80,16 @@ class EncodeProcessDecode(nn.Module):
     def _encode_nodes(self, sample):
         node_features = sample['fluid'].node_attr
         env_features = sample['env'].node_attr
-        env_active_mask = sample['env'].active_mask[:, 0]
-        env_features_active = env_features[env_active_mask]
-
-        N_node = node_features.shape[0]
+        N_fluid = node_features.shape[0]
         N_env = env_features.shape[0]
 
-        combined_features = torch.cat([node_features, env_features_active], dim=0)
+        combined_features = torch.cat([node_features, env_features], dim=0)
         combined_latents = self.node_encoder(combined_features)
 
-        node_latents = combined_latents[:N_node]
-        env_active_latents = combined_latents[N_node:]
-        latent_features = env_active_latents.shape[1]
+        fluid_latents = combined_latents[:N_fluid]
+        env_latents = combined_latents[N_fluid:]
 
-        env_latents = torch.zeros(N_env, latent_features).to(env_active_latents.device)
-        env_latents[env_active_mask] = env_active_latents
-
-        sample['fluid'].node_attr = node_latents
+        sample['fluid'].node_attr = fluid_latents
         sample['env'].node_attr = env_latents
 
         return sample
@@ -138,26 +131,24 @@ class EncodeProcessDecode(nn.Module):
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if __name__ == '__main__':
     output_size: int = 3
-    latent_size: int = 128
+    latent_size: int = 64
     num_layers: int = 2
-    n_nodefeatures: int = 20
-    n_edgefeatures_mesh: int = 12
-    n_edgefeatures_world: int = 9
+    n_nodefeatures: int = 3
+    n_edgefeatures_mesh: int = 3
+    n_edgefeatures_world: int = 3
     message_passing_steps: int = 15
-    collision_radius: float = 5e-2
-    use_current_obstacle_pos: bool = False
     
     dataset = EncoderDecoderDataset()
     sample = dataset[0]
 
-    enc_doc_model = EncodeProcessDecode(
+    enc_doc_model = MeshGraphNet(
         output_size=output_size,
         latent_size=latent_size,
         num_layers=num_layers,
         n_nodefeatures=n_nodefeatures,
         n_edgefeatures_mesh=n_edgefeatures_mesh,
         n_edgefeatures_world=n_edgefeatures_world,
-        message_passing_steps=message_passing_steps)
+        message_passing_steps=message_passing_steps).to('cuda')
     
     output = enc_doc_model(sample)
 # %%
