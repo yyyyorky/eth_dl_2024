@@ -8,8 +8,8 @@ from torch_geometric.typing import Size
 
 import sys
 import os
-util_path = '../utils/'
-sys.path.append(os.path.abspath(util_path))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.dataset import EncoderDecoderDataset
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 class GraphNetBlock(MessagePassing):
@@ -131,10 +131,6 @@ class GraphNetBlock(MessagePassing):
          
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if __name__ == '__main__':
-    import sys
-    import os
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from utils.dataset import EncoderDecoderDataset
 
     dataset = EncoderDecoderDataset()
     sample = dataset[0]
