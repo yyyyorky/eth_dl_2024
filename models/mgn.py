@@ -80,21 +80,15 @@ class EncodeProcessDecode(nn.Module):
     def _encode_nodes(self, sample):
         node_features = sample['fluid'].node_attr
         env_features = sample['env'].node_attr
-        env_active_mask = sample['env'].active_mask[:, 0]
-        env_features_active = env_features[env_active_mask]
 
         N_node = node_features.shape[0]
         N_env = env_features.shape[0]
 
-        combined_features = torch.cat([node_features, env_features_active], dim=0)
+        combined_features = torch.cat([node_features, env_features], dim=0)
         combined_latents = self.node_encoder(combined_features)
 
         node_latents = combined_latents[:N_node]
-        env_active_latents = combined_latents[N_node:]
-        latent_features = env_active_latents.shape[1]
-
-        env_latents = torch.zeros(N_env, latent_features).to(env_active_latents.device)
-        env_latents[env_active_mask] = env_active_latents
+        env_latents = combined_latents[N_node:]
 
         sample['fluid'].node_attr = node_latents
         sample['env'].node_attr = env_latents
