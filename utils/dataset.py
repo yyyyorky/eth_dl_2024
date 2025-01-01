@@ -242,7 +242,6 @@ class TemporalSequenceGraphDataset(Dataset):
 if __name__ == "__main__":
     # Create dataset
     dataset = EncoderDecoderDataset()
-    print(dataset[0].keys)
     print(dataset[0].node_types)
     print(dataset[0].edge_types)
 # %%
