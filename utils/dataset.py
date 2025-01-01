@@ -5,7 +5,7 @@ import torch
 from torch import nn
 from torch_geometric.data import Dataset, HeteroData
 import json
-import constant
+from utils import constant
 
 C = constant.Constant()
 
