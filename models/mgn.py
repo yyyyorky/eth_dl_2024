@@ -7,6 +7,7 @@ from torch_geometric.data import Batch
 from gn_block import GraphNetBlock
 from utils.dataset import EncoderDecoderDataset
 
+
 class MLP(nn.Module):
     def __init__(self, widths, act_fun=nn.ReLU, activate_final=None):
         super().__init__()

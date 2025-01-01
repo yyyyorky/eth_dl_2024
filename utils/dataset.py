@@ -139,23 +139,6 @@ class EncoderDecoderDataset(Dataset):
         sidx = idx // self.sequence_len
         tidx = idx % self.sequence_len
 
-        # #######################################################################
-        # node_features = self.solution_states[sidx, tidx]
-        # node_targets = self.solution_states[sidx, tidx]
-        # # node_targets = node_features because it is an autoencoder
-        # re = self.re[sidx]
-
-        # data = Data(
-        #     x=node_features,
-        #     edge_index=self.edge_index,
-        #     edge_attr=self.edge_attr,
-        #     y=node_targets,
-        #     sequence_idx=torch.tensor([sidx], device=self.device),
-        #     time_idx=torch.tensor([tidx], device=self.device),
-        #     re = re,
-        # )
-        # #######################################################################
-
         data = HeteroData()
         node_features = self.solution_states[sidx, tidx]
         node_targets = self.solution_states[sidx, tidx]
@@ -235,13 +218,164 @@ class TemporalSequenceGraphDataset(Dataset):
     split : str
         Dataset split ["train", "test"]
     """
-    pass
+    def __init__(self, data_dir = C.data_dir, split='train', device=C.device):
+        self.split = split
+        super(TemporalSequenceGraphDataset, self).__init__()
+
+        self.device = device
+        self.data_dir = data_dir
+
+        self.rawData = np.load(
+            os.path.join(self.data_dir, "rawData.npy"), allow_pickle=True
+        )
+
+        # select training and testing set
+        if self.split == "train":
+            self.sequence_ids = [i for i in range(101) if i % 2 == 0]
+        if self.split == "test":
+            self.sequence_ids = [i for i in range(101) if i % 2 == 1]
+
+        # solution states
+        self.solution_states = torch.from_numpy(
+            self.rawData["x"][self.sequence_ids, :, :, :]
+        ).float().to(self.device)
+
+        # edge information
+        self.edge_attr = torch.from_numpy(
+            self.rawData["edge_attr"]
+        ).float().to(self.device)
+        
+        # edge connection
+        self.edge_index = torch.from_numpy(
+            self.rawData["edge_index"]
+        ).type(torch.long).to(self.device)
+
+        # sequence length info
+        self.sequence_len = self.solution_states.shape[1]
+        self.sequence_num = self.solution_states.shape[0]
+        self.num_nodes = self.solution_states.shape[2]
+
+        if self.split == "train":
+            self.edge_stats = self._get_edge_stats()
+        else:
+            self.edge_stats = load_json(self.data_dir + "/edge_stats.json")
+        self.edge_stats["edge_mean"] = self.edge_stats["edge_mean"].to(self.device)
+        self.edge_stats["edge_std"] = self.edge_stats["edge_std"].to(self.device)
+
+        if self.split == "train":
+            self.node_stats = self._get_node_stats()
+        else:
+            self.node_stats = load_json(self.data_dir + "/node_stats.json")
+        self.node_stats["node_mean"] = self.node_stats["node_mean"].to(self.device)
+        self.node_stats["node_std"] = self.node_stats["node_std"].to(self.device)
+
+        # handle normalization
+        for i in range(self.sequence_num):
+            for j in range(self.sequence_len):
+                self.solution_states[i, j] = self.normalize(
+                    self.solution_states[i, j],
+                    self.node_stats["node_mean"],
+                    self.node_stats["node_std"],
+                )
+        self.edge_attr = self.normalize(
+            self.edge_attr, self.edge_stats["edge_mean"], self.edge_stats["edge_std"]
+        )
+
+        self.re = self.get_re_number()
+
+    def get_re_number(self):
+        """Get RE number"""
+        ReAll = torch.from_numpy(np.linspace(300, 1000, 101)).float().reshape([-1, 1]).to(self.device)
+        ReAll = ReAll/ReAll.max()
+        if self.split == "train":
+            index = [i for i in range(101) if i % 2 == 0]
+        else:
+            index = [i for i in range(101) if i % 2 == 1]
+        ReAll = ReAll[index]
+        ReAll = ReAll.repeat(self.sequence_len, 1)
+        return ReAll
+
+        
+
+    def len(self):
+        return self.sequence_num * (self.sequence_len - 1)
+
+    def get(self, idx):
+        '''
+        Get the data object for the idx-th sequence in the dataset.
+        'x': node features [num_nodes, num_node_features]
+        'edge_index': edge connections [2, num_edges]
+        'edge_attr': edge features [num_edges, num_edge_features]
+        'y': node targets [num_nodes, num_node_features]
+        'sequence_idx': sequence index [1]
+        'time_idx': time index [1]
+        'global_features': global features [1, num_global_features] (Reynolds number)
+        '''
+        sidx = idx // self.sequence_len
+        tidx = idx % (self.sequence_len - 1)
+
+        data = HeteroData()
+        node_features = self.solution_states[sidx, tidx]
+        node_targets = self.solution_states[sidx, tidx+1]
+        data['fluid'].node_attr = node_features
+        data['fluid'].node_target = node_targets
+  
+        # Environment node (Re)
+        re = self.re[sidx]
+        re = re.repeat(1, 3)  # Shape: [1, 3]
+        data['env'].node_attr = re
+        
+        # Original fluid-to-fluid edges
+        data['fluid', 'm_e', 'fluid'].edge_index = self.edge_index
+        data['fluid', 'm_e', 'fluid'].edge_attr = self.edge_attr
+        
+        # Environment-to-fluid edges: connect Re node to all fluid nodes
+        # the first is sender nodes, the second is receiver nodes
+        num_fluid_nodes = node_features.size(0)
+        env_to_fluid_edge_index = torch.zeros((2, num_fluid_nodes), device=self.device, dtype=torch.long)
+        env_to_fluid_edge_index[1] = torch.arange(num_fluid_nodes, device=self.device)  # Target nodes
+        data['env', 'wm_e', 'fluid'].edge_index = env_to_fluid_edge_index
+        data['env', 'wm_e', 'fluid'].edge_attr = torch.ones((num_fluid_nodes, self.edge_attr.size(1)), device=self.device)
+
+        data['fluid'].sequence_idx = torch.tensor([sidx], device=self.device)
+        data['fluid'].time_idx = torch.tensor([tidx], device=self.device)
+
+        return data
+
+    def _get_edge_stats(self):
+        stats = {
+            "edge_mean": self.edge_attr.mean(dim=0),
+            "edge_std": self.edge_attr.std(dim=0),
+        }
+        save_json(stats, self.data_dir + "/edge_stats.json")
+        return stats
+
+    def _get_node_stats(self):
+        stats = {
+            "node_mean": self.solution_states.mean(dim=[0, 1, 2]),
+            "node_std": self.solution_states.std(dim=[0, 1, 2]),
+        }
+        save_json(stats, self.data_dir + "/node_stats.json")
+        return stats
+
+    @staticmethod
+    def normalize(invar, mu, std):
+        if invar.size()[-1] != mu.size()[-1] or invar.size()[-1] != std.size()[-1]:
+            raise ValueError(
+                "invar, mu, and std must have the same size in the last dimension"
+            )
+        return (invar - mu.expand(invar.size())) / std.expand(invar.size())
+
+    @staticmethod
+    def denormalize(invar, mu, std):
+        return invar * std + mu
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Usage example:
 if __name__ == "__main__":
     # Create dataset
     dataset = EncoderDecoderDataset()
+    dataset = TemporalSequenceGraphDataset()
     print(dataset[0].node_types)
     print(dataset[0].edge_types)
 # %%
