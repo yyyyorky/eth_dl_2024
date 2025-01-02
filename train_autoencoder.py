@@ -12,8 +12,18 @@ import random
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
-
 C = Constant()
+
+def set_seed(seed = C.seed+7):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)
+
+set_seed()
+
 retrain = True
 batch_size = C.batch_size
 num_epochs = C.num_epochs * 2
