@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 C = Constant()
 retrain = True
 batch_size = C.batch_size
+num_epochs = C.num_epochs * 2
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 train_dataset = EncoderDecoderDataset()
@@ -42,13 +43,14 @@ scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999999)
 
 if retrain:
     model.train()
-    for epoch in range(C.num_epochs * 2):
-        print(f'Epoch {epoch} out of {C.num_epochs}')
+    for epoch in range(num_epochs):
+        print(f'Epoch {epoch} out of {num_epochs}')
         epoch_loss = 0
         for i, sample in enumerate(tqdm(train_loader)):
+            sub_batch_size = sample['fluid'].node_attr.shape[0] // C.nodes_per_mesh
             sample = sample.to(C.device)
             optimizer.zero_grad()
-            out = model(sample, position_mesh, position_pivotal, batch_size)
+            out = model(sample, position_mesh, position_pivotal, sub_batch_size)
             loss = criterion(out['fluid'].node_attr, sample['fluid'].node_target)
             loss.backward()
             optimizer.step()

@@ -90,17 +90,28 @@ class MeshReduce(nn.Module):
         sample = self.encoder_processor(sample)
         node_features = self.PivotalNorm(sample['fluid'].node_attr)
         sample['fluid'].node_attr = node_features
-
-        # Calculate nodes per batch
-        nodes_per_batch = node_features.shape[0] // batch_size
-        pivotal_nodes_per_batch = len(position_pivotal)
         
-        # Create correct batch indices
+        # Get total number of nodes
+        total_nodes = node_features.shape[0]
+        nodes_per_batch = total_nodes // batch_size
+        
+        # Handle the last batch which might have remaining nodes
+        remaining_nodes = total_nodes % batch_size
+        
+        # Create batch indices accounting for uneven last batch
         nodes_index = torch.arange(batch_size).to(node_features.device)
-        batch_mesh = torch.repeat_interleave(nodes_index, nodes_per_batch)
+        if remaining_nodes == 0:
+            batch_mesh = torch.repeat_interleave(nodes_index, nodes_per_batch)
+        else:
+            # Create list of nodes per batch with last batch having the remainder
+            nodes_per_batch_list = [nodes_per_batch] * (batch_size - 1) + [nodes_per_batch + remaining_nodes]
+            batch_mesh = torch.repeat_interleave(nodes_index, torch.tensor(nodes_per_batch_list).to(node_features.device))
+        
+        # Create pivotal batch indices
+        pivotal_nodes_per_batch = len(position_pivotal)
         batch_pivotal = torch.repeat_interleave(nodes_index, pivotal_nodes_per_batch)
         
-        # Create correct position tensors
+        # Create position tensors
         position_mesh_batch = position_mesh.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_mesh.shape[-1])
         position_pivotal_batch = position_pivotal.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_pivotal.shape[-1])
 
@@ -117,17 +128,27 @@ class MeshReduce(nn.Module):
 
     def decode(self, sample, position_mesh, position_pivotal, batch_size):
         node_features = sample['fluid'].node_attr
-
-        # Calculate nodes per batch for pivotal points
-        pivotal_nodes_per_batch = node_features.shape[0] // batch_size
+        
+        # Get total number of nodes
+        total_nodes = node_features.shape[0]
+        pivotal_nodes_per_batch = total_nodes // batch_size
         mesh_nodes_per_batch = len(position_mesh)
         
-        # Create correct batch indices
+        # Handle the last batch which might have remaining nodes
+        remaining_nodes = total_nodes % batch_size
+        
+        # Create batch indices
         nodes_index = torch.arange(batch_size).to(node_features.device)
         batch_mesh = torch.repeat_interleave(nodes_index, mesh_nodes_per_batch)
-        batch_pivotal = torch.repeat_interleave(nodes_index, pivotal_nodes_per_batch)
         
-        # Create correct position tensors
+        if remaining_nodes == 0:
+            batch_pivotal = torch.repeat_interleave(nodes_index, pivotal_nodes_per_batch)
+        else:
+            # Create list of nodes per batch with last batch having the remainder
+            nodes_per_batch_list = [pivotal_nodes_per_batch] * (batch_size - 1) + [pivotal_nodes_per_batch + remaining_nodes]
+            batch_pivotal = torch.repeat_interleave(nodes_index, torch.tensor(nodes_per_batch_list).to(node_features.device))
+        
+        # Create position tensors
         position_mesh_batch = position_mesh.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_mesh.shape[-1])
         position_pivotal_batch = position_pivotal.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_pivotal.shape[-1])
 

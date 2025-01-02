@@ -15,6 +15,7 @@ class Constant:
         self.output_size = 3
         self.lr = 1e-3
         self.num_epochs = 200
+        self.nodes_per_mesh = 1699
 
 
 if __name__ == "__main__":
