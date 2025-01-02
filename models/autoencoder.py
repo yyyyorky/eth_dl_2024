@@ -89,81 +89,58 @@ class MeshReduce(nn.Module):
     def encode(self, sample, position_mesh, position_pivotal, batch_size):
         sample = self.encoder_processor(sample)
         node_features = self.PivotalNorm(sample['fluid'].node_attr)
-
         sample['fluid'].node_attr = node_features
 
-        # print(node_features.shape)
+        # Calculate nodes per batch
+        nodes_per_batch = node_features.shape[0] // batch_size
+        pivotal_nodes_per_batch = len(position_pivotal)
         
+        # Create correct batch indices
         nodes_index = torch.arange(batch_size).to(node_features.device)
-        batch_mesh = nodes_index.repeat_interleave(node_features.shape[0])
-        position_mesh_batch = position_mesh.repeat(batch_size, 1)
-        position_pivotal_batch = position_pivotal.repeat(batch_size, 1)
-        batch_pivotal = nodes_index.repeat_interleave(
-            torch.tensor([len(position_pivotal)] * batch_size).to(node_features.device)
-        )
+        batch_mesh = torch.repeat_interleave(nodes_index, nodes_per_batch)
+        batch_pivotal = torch.repeat_interleave(nodes_index, pivotal_nodes_per_batch)
+        
+        # Create correct position tensors
+        position_mesh_batch = position_mesh.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_mesh.shape[-1])
+        position_pivotal_batch = position_pivotal.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_pivotal.shape[-1])
 
         node_features, _, _, _ = self.knn_interpolate(
-                                        x=node_features,
-                                        pos_x=position_mesh_batch,
-                                        pos_y=position_pivotal_batch,
-                                        batch_x=batch_mesh,
-                                        batch_y=batch_pivotal,
+            x=node_features,
+            pos_x=position_mesh_batch,
+            pos_y=position_pivotal_batch,
+            batch_x=batch_mesh,
+            batch_y=batch_pivotal,
         )
         
-        # print(node_features.shape)
-        
-        # print(position_mesh_batch.shape)
-        
-        # print(position_pivotal_batch.shape)
-        
-        # print(batch_mesh.shape)
-        
-        # print(batch_pivotal.shape)
-        
         sample['fluid'].node_attr = node_features
-
-        #TODO: add the spatial information embedding to the pivotal nodes.
-        #      add spatial attention only to the pivotal nodes.
-        #      Here is it better to return a graph or only the tokenized nodes?
-
         return sample
-    
 
     def decode(self, sample, position_mesh, position_pivotal, batch_size):
         node_features = sample['fluid'].node_attr
 
+        # Calculate nodes per batch for pivotal points
+        pivotal_nodes_per_batch = node_features.shape[0] // batch_size
+        mesh_nodes_per_batch = len(position_mesh)
+        
+        # Create correct batch indices
         nodes_index = torch.arange(batch_size).to(node_features.device)
-        # Fix the bug: node_features -> position_mesh
-        batch_mesh = nodes_index.repeat_interleave(position_mesh.shape[0])
-        position_mesh_batch = position_mesh.repeat(batch_size, 1)
-        position_pivotal_batch = position_pivotal.repeat(batch_size, 1)
-        batch_pivotal = nodes_index.repeat_interleave(
-            torch.tensor([len(position_pivotal)] * batch_size).to(node_features.device)
-        )
+        batch_mesh = torch.repeat_interleave(nodes_index, mesh_nodes_per_batch)
+        batch_pivotal = torch.repeat_interleave(nodes_index, pivotal_nodes_per_batch)
         
-        # print(node_features.shape)
-        
-        # print(position_mesh_batch.shape)
-        
-        # print(position_pivotal_batch.shape)
-        
-        # print(batch_mesh.shape)
-        
-        # print(batch_pivotal.shape)
+        # Create correct position tensors
+        position_mesh_batch = position_mesh.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_mesh.shape[-1])
+        position_pivotal_batch = position_pivotal.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_pivotal.shape[-1])
 
         node_features, _, _, _ = self.knn_interpolate(
-                                        x=node_features,
-                                        pos_x=position_pivotal_batch,
-                                        pos_y=position_mesh_batch,
-                                        batch_x=batch_pivotal,
-                                        batch_y=batch_mesh,
+            x=node_features,
+            pos_x=position_pivotal_batch,
+            pos_y=position_mesh_batch,
+            batch_x=batch_pivotal,
+            batch_y=batch_mesh,
         )
+        
         sample['fluid'].node_attr = node_features
-        
-        # print(node_features.shape)
-
         sample = self.decoder_processor(sample)
-        
         return sample
     
     def forward(self, sample, position_mesh, position_pivotal, batch_size):
@@ -208,4 +185,6 @@ if __name__ == '__main__':
     decode_output = enc_doc_model.decode(encode_output, position_mesh, position_pivotal, 1)
     
     print(decode_output)
+
+    trial = enc_doc_model(sample, position_mesh, position_pivotal, 1)
 # %%

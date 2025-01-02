@@ -1,4 +1,6 @@
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+import os
+import sys
 from models.autoencoder import MeshReduce
 import torch
 import torch.nn as nn
@@ -12,11 +14,15 @@ import matplotlib.pyplot as plt
 
 
 C = Constant()
-retrain = False
+retrain = True
+batch_size = C.batch_size
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 train_dataset = EncoderDecoderDataset()
-train_loader = DataLoader(train_dataset, batch_size=C.batch_size, shuffle=True)
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+position_mesh = torch.from_numpy(np.loadtxt(os.path.join(C.data_dir, "meshPosition_all.txt"))).to(C.device)
+position_pivotal = torch.from_numpy(np.loadtxt(os.path.join(C.data_dir, "meshPosition_pivotal.txt"))).to(C.device)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 # Initialize the model
@@ -32,5 +38,29 @@ model = MeshReduce(
 optimizer = torch.optim.Adam(model.parameters(), lr=C.lr)
 criterion = nn.MSELoss()
 scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999999)
+
+
+if retrain:
+    model.train()
+    for epoch in range(C.num_epochs * 2):
+        print(f'Epoch {epoch} out of {C.num_epochs}')
+        epoch_loss = 0
+        for i, sample in enumerate(tqdm(train_loader)):
+            sample = sample.to(C.device)
+            optimizer.zero_grad()
+            out = model(sample, position_mesh, position_pivotal, batch_size)
+            loss = criterion(out['fluid'].node_attr, sample['fluid'].node_target)
+            loss.backward()
+            optimizer.step()
+            epoch_loss += loss.item()
+        print(f'Epoch loss: {epoch_loss}')
+        scheduler.step()
+else:
+    model.load_state_dict(torch.load(C.data_dir + 'checkpoints/autoencoder.pth', weights_only=True))
+
+model.eval()
+state_dict = model.state_dict()
+save_path = C.data_dir + 'checkpoints/autoencoder.pth'
+torch.save(state_dict, save_path)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
