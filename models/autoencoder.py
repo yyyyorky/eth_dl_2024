@@ -126,6 +126,52 @@ class Mesh_Reduced(nn.Module):
 
     #     return self.decode(sample)
 
+
+class MeshReduced_yyy(nn.Module):
+    def __init__(self, 
+                 input_node_features_dim: int,
+                 input_edge_features_dim: int,
+                 output_node_features_dim: int,
+                 internal_width: int,
+                 message_passing_steps: int,
+                 num_layers: int,
+                 k: int = 3
+                 ):
+        super(MeshReduced_yyy, self).__init__()
+        self.input_node_features_dim = input_node_features_dim
+        self.input_edge_features_dim = input_edge_features_dim
+        self.output_node_features_dim = output_node_features_dim
+        self.internal_width = internal_width
+        self.message_passing_steps = message_passing_steps
+        self.num_layers = num_layers
+        self.k = k
+        self.PivotalNorm = torch.nn.LayerNorm(output_node_features_dim)
+
+        self.encoder_processor = MeshGraphNet(
+            output_size=output_node_features_dim,
+            latent_size=internal_width,
+            num_layers=num_layers,
+            n_nodefeatures=input_node_features_dim,
+            n_edgefeatures_mesh=input_edge_features_dim,
+            n_edgefeatures_world=input_edge_features_dim,
+            message_passing_steps=message_passing_steps//2
+        )
+
+        self.decoder_processor = MeshGraphNet(
+            output_size=input_node_features_dim,
+            latent_size=internal_width,
+            num_layers=num_layers,
+            n_nodefeatures=output_node_features_dim,
+            n_edgefeatures_mesh=input_edge_features_dim,
+            n_edgefeatures_world=input_edge_features_dim,
+            message_passing_steps=message_passing_steps//2
+        )
+
+
+
+
+
+
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if __name__ == '__main__':
     pass
