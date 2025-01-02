@@ -1,4 +1,7 @@
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,6 +9,7 @@ import torch_cluster
 import torch_scatter
 from models.mgn import MeshGraphNet
 
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 class Mesh_Reduced(nn.Module):
     def __init__(
@@ -92,7 +96,11 @@ class Mesh_Reduced(nn.Module):
         )
         
         sample['fluid'].node_attr = node_features
-        
+
+        #TODO: add the spatial information embedding to the pivotal nodes.
+        #      add spatial attention only to the pivotal nodes.
+        #      Here is it better to return a graph or only the tokenized nodes?
+
         return sample
     
 
@@ -167,6 +175,38 @@ class MeshReduced_yyy(nn.Module):
             message_passing_steps=message_passing_steps//2
         )
 
+    def knn_interpolate(
+        self,
+        x: torch.Tensor,
+        pos_x: torch.Tensor,
+        pos_y: torch.Tensor,
+        batch_x: torch.Tensor = None,
+        batch_y: torch.Tensor = None,
+        k: int = 3,
+        num_workers: int = 1,
+    ):
+        with torch.no_grad():
+            assign_index = torch_cluster.knn(
+                pos_x,
+                pos_y,
+                k,
+                batch_x=batch_x,
+                batch_y=batch_y,
+                num_workers=num_workers,
+            )
+            y_idx, x_idx = assign_index[0], assign_index[1]
+            diff = pos_x[x_idx] - pos_y[y_idx]
+            squared_distance = (diff * diff).sum(dim=-1, keepdim=True)
+            weights = 1.0 / torch.clamp(squared_distance, min=1e-16)
+
+        y = torch_scatter.scatter(
+            x[x_idx] * weights, y_idx, 0, dim_size=pos_y.size(0), reduce="sum"
+        )
+        y = y / torch_scatter.scatter(
+            weights, y_idx, 0, dim_size=pos_y.size(0), reduce="sum"
+        )
+
+        return y.float(), x_idx, y_idx, weights
 
 
 
