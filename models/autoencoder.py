@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch_cluster
 import torch_scatter
-from models.mgn import EncodeProcessDecode as MeshGraphNet
+from models.mgn import MeshGraphNet
 
 
 class Mesh_Reduced(nn.Module):
@@ -30,7 +30,9 @@ class Mesh_Reduced(nn.Module):
         super(Mesh_Reduced, self).__init__()
         self.knn_encoder_already = False
         self.knn_decoder_already = False
-        self.encoder_processor = MeshGraphNet(...)
+        self.encoder_processor = MeshGraphNet(
+            
+        )
         
         self.decoder_processor = MeshGraphNet(...)
         self.k = k
