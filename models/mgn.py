@@ -1,19 +1,51 @@
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-import torch
-import numpy as np
-from gn_block import GraphNetBlock
-from torch import nn
-import mlp
 import functools
+import torch
+import torch.nn as nn
+import numpy as np
 from torch_geometric.data import Batch
+from models.gn_block import GraphNetBlock
+from utils.dataset import EncoderDecoderDataset
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+class MLP(nn.Module):
+    def __init__(self, widths, act_fun=nn.ReLU, activate_final=None):
+        super().__init__()
+
+        layers = []
+
+        n_in = widths[0]
+        for i, w in enumerate(widths[1:-1]):
+            linear = nn.Linear(n_in, w)
+            layers.append(linear)
+
+            act = act_fun()
+            layers.append(act)
+
+            n_in = w
+
+        linear = nn.Linear(n_in, widths[-1])
+        layers.append(linear)
+
+        if activate_final is not None:
+            act = activate_final()
+            layers.append(act)
+
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.layers(x)
+
 class MeshGraphNet(nn.Module):
     def __init__(self, output_size: int, latent_size: int, num_layers: int, n_nodefeatures: int,
                  n_edgefeatures_mesh: int,
                  n_edgefeatures_world: int,
                  message_passing_steps: int):
-        """Encode-Process-Decode GraphNet model."""
+        """Encode-Process-Decode MeshGraphNet model."""
         super().__init__()
         self._latent_size = latent_size
         self._output_size = output_size
@@ -45,18 +77,18 @@ class MeshGraphNet(nn.Module):
     def _make_mlp(self, input_size: int, output_size: int, layer_norm: bool = True) -> nn.Module:
         """Builds an MLP."""
         widths = [input_size] + [self._latent_size] * self._num_layers + [output_size]
-        network = mlp.MLP(widths, activate_final=None)
+        network = MLP(widths, activate_final=None)
         if layer_norm:
             network = nn.Sequential(network, nn.LayerNorm(output_size))
         return network
 
     def _encode_nodes(self, sample):
-        fluid_features = sample['fluid'].node_attr
+        node_features = sample['fluid'].node_attr
         env_features = sample['env'].node_attr
-        N_fluid = fluid_features.shape[0]
+        N_fluid = node_features.shape[0]
         N_env = env_features.shape[0]
 
-        combined_features = torch.cat([fluid_features, env_features], dim=0)
+        combined_features = torch.cat([node_features, env_features], dim=0)
         combined_latents = self.node_encoder(combined_features)
 
         fluid_latents = combined_latents[:N_fluid]
@@ -72,10 +104,11 @@ class MeshGraphNet(nn.Module):
         mesh_edge_latents = self.edgeset_encoders['mesh'](mesh_edge_features)
         sample['fluid', 'm_e', 'fluid'].edge_attr = mesh_edge_latents
 
-        env_fluid_edge_features = sample['env', 'wm_e', 'fluid'].edge_attr
-        N_world_edges = env_fluid_edge_features.shape[0]
-
+        env_edge_features = sample['env', 'wm_e', 'fluid'].edge_attr
+        env_edge_latents = self.edgeset_encoders['world'](env_edge_features)
+        sample['env', 'wm_e', 'fluid'].edge_attr = env_edge_latents
         
+        return sample
 
     def _encode(self, sample: Batch) -> Batch:
         """Encodes node and edge features into latent features."""
@@ -85,13 +118,14 @@ class MeshGraphNet(nn.Module):
 
     def _decode(self, sample):
         """Decodes node features from graph."""
-        cloth_features = sample['cloth'].node_features
-        out_features = self.decoder(cloth_features)
-        sample['cloth'].node_features = out_features
+        node_features = sample['fluid'].node_attr
+        out_features = self.decoder(node_features)
+        sample['fluid'].node_attr = out_features
         return sample
 
     def forward(self, sample) -> torch.Tensor:
         """Encodes and processes a multigraph, and returns node features."""
+        sample = sample.clone()
         sample = self._encode(sample)
 
         for i in range(self._message_passing_steps):
@@ -102,4 +136,25 @@ class MeshGraphNet(nn.Module):
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if __name__ == '__main__':
-    pass
+    output_size: int = 3
+    latent_size: int = 64
+    num_layers: int = 2
+    n_nodefeatures: int = 3
+    n_edgefeatures_mesh: int = 3
+    n_edgefeatures_world: int = 3
+    message_passing_steps: int = 15
+    
+    dataset = EncoderDecoderDataset()
+    sample = dataset[0]
+
+    enc_doc_model = MeshGraphNet(
+        output_size=output_size,
+        latent_size=latent_size,
+        num_layers=num_layers,
+        n_nodefeatures=n_nodefeatures,
+        n_edgefeatures_mesh=n_edgefeatures_mesh,
+        n_edgefeatures_world=n_edgefeatures_world,
+        message_passing_steps=message_passing_steps).to('cuda')
+    
+    output = enc_doc_model(sample)
+# %%
