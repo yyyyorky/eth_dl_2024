@@ -1,4 +1,8 @@
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import functools
 import torch
 import torch.nn as nn
@@ -6,10 +10,6 @@ import numpy as np
 from torch_geometric.data import Batch
 from models.gn_block import GraphNetBlock
 from utils.dataset import EncoderDecoderDataset
-
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class MLP(nn.Module):
@@ -123,15 +123,21 @@ class MeshGraphNet(nn.Module):
         sample['fluid'].node_attr = out_features
         return sample
 
-    def forward(self, sample) -> torch.Tensor:
-        """Encodes and processes a multigraph, and returns node features."""
-        sample = sample.clone()
-        sample = self._encode(sample)
+    def forward(self, sample) -> Batch:
+        """
+        Encodes and processes a multigraph, and returns node features.
+        Only change the node features, the edge features are not changed.
+        """
+        out = sample.clone()
+        out = self._encode(out)
 
         for i in range(self._message_passing_steps):
-            sample = self.processor_steps[i](sample)
+            out = self.processor_steps[i](out)
+        out = self._decode(out)
 
-        return self._decode(sample)
+        sample['fluid'].node_attr = out['fluid'].node_attr
+
+        return sample
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

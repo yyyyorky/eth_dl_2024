@@ -48,8 +48,8 @@ class MeshReduce(nn.Module):
             latent_size=internal_width,
             num_layers=num_layers,
             n_nodefeatures=output_node_features_dim,
-            n_edgefeatures_mesh=internal_width,
-            n_edgefeatures_world=internal_width,
+            n_edgefeatures_mesh=output_node_features_dim,
+            n_edgefeatures_world=output_node_features_dim,
             message_passing_steps=message_passing_steps//2
         )
 
@@ -89,6 +89,10 @@ class MeshReduce(nn.Module):
     def encode(self, sample, position_mesh, position_pivotal, batch_size):
         sample = self.encoder_processor(sample)
         node_features = self.PivotalNorm(sample['fluid'].node_attr)
+
+        sample['fluid'].node_attr = node_features
+
+        # print(node_features.shape)
         
         nodes_index = torch.arange(batch_size).to(node_features.device)
         batch_mesh = nodes_index.repeat_interleave(node_features.shape[0])
@@ -137,7 +141,7 @@ class MeshReduce(nn.Module):
             torch.tensor([len(position_pivotal)] * batch_size).to(node_features.device)
         )
         
-        print(node_features.shape)
+        # print(node_features.shape)
         
         # print(position_mesh_batch.shape)
         
@@ -156,7 +160,7 @@ class MeshReduce(nn.Module):
         )
         sample['fluid'].node_attr = node_features
         
-        print(node_features.shape)
+        # print(node_features.shape)
 
         sample = self.decoder_processor(sample)
         
@@ -177,17 +181,15 @@ C = constant.Constant()
 
 if __name__ == '__main__':
     # Fix the bug: output_node_features_dim: 3 -> 64
-    output_node_features_dim: int = 64
+    output_node_features_dim: int = 3
     internal_width: int = 64
     num_layers: int = 2
     input_node_features_dim: int = 3
     input_edge_features_dim: int = 3
-    message_passing_steps: int = 15
+    message_passing_steps: int = 16
     
     dataset = EncoderDecoderDataset()
     sample = dataset[0]
-    
-    print(sample)
 
     enc_doc_model = MeshReduce(input_node_features_dim,
                                 input_edge_features_dim,

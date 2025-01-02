@@ -89,6 +89,7 @@ print(f'Relative L2 error: {relative_l2_error / len(test_loader)}')
 #rollout prediction
 test_dataset = TemporalSequenceGraphDataset(split='test')
 num_steps = test_dataset[0]['fluid'].node_target.shape[0]
+#IMPORTANT: batch size must be 1 for rollout
 test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 relative_l2_error_hist = torch.zeros(num_steps, dtype=torch.float32, device=C.device)
 model.eval()
