@@ -2,12 +2,14 @@
 from models.mgn import MeshGraphNet
 import torch
 import torch.nn as nn
-from utils.dataset import TemporalSequenceGraphDataset
+from utils.dataset import OneStepGraphDataset, TemporalSequenceGraphDataset
 from torch_geometric.loader import DataLoader
 from utils.constant import Constant
+from utils.rollout import rollout
 import numpy as np
 import random
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 C = Constant()
 retrain = False
@@ -23,7 +25,7 @@ def set_seed(seed = C.seed):
 set_seed()
 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-train_dataset = TemporalSequenceGraphDataset(split='train')
+train_dataset = OneStepGraphDataset(split='train')
 train_loader = DataLoader(train_dataset, batch_size=C.batch_size, shuffle=True)
 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -68,9 +70,9 @@ save_path = C.data_dir + 'checkpoints/mgn_sim.pth'
 torch.save(state_dict, save_path)
 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-test_dataset = TemporalSequenceGraphDataset(split='test')
+#one step prediction
+test_dataset = OneStepGraphDataset(split='test')
 test_loader = DataLoader(test_dataset, batch_size=10, shuffle=False)
-# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 relative_l2_error = 0
 model.eval()
 with torch.no_grad():
@@ -81,6 +83,27 @@ with torch.no_grad():
         relative_l2_error += torch.mean(numerator / denominator).item()
 
 print(f'Relative L2 error: {relative_l2_error / len(test_loader)}')
+
+
+# %%
+#rollout prediction
+test_dataset = TemporalSequenceGraphDataset(split='test')
+num_steps = test_dataset[0]['fluid'].node_target.shape[0]
+test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+relative_l2_error_hist = torch.zeros(num_steps, dtype=torch.float32, device=C.device)
+model.eval()
+with torch.no_grad():
+    for i, sample in enumerate(tqdm(test_loader)):
+        result = rollout(model, sample, num_steps)
+        target = sample['fluid'].node_target
+        denominator = torch.norm(target, dim=1)
+        numerator = torch.norm(result - target, dim=1)
+        relative_l2_error_hist += torch.mean(numerator / denominator, dim=-1)
+relative_l2_error_hist /= len(test_loader)
+#%%
+plt.plot(relative_l2_error_hist.cpu().numpy())
+
+
 
 
 # %%

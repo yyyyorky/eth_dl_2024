@@ -125,6 +125,7 @@ class MeshGraphNet(nn.Module):
 
     def forward(self, sample) -> torch.Tensor:
         """Encodes and processes a multigraph, and returns node features."""
+        sample = sample.clone()
         sample = self._encode(sample)
 
         for i in range(self._message_passing_steps):
