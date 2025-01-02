@@ -11,36 +11,45 @@ from models.mgn import MeshGraphNet
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-class Mesh_Reduced(nn.Module):
-    def __init__(
-        self,
-        input_dim_nodes: int,
-        input_dim_edges: int,
-        output_decode_dim: int,
-        output_encode_dim: int = 3,
-        processor_size: int = 15,
-        num_layers_node_processor: int = 2,
-        num_layers_edge_processor: int = 2,
-        hidden_dim_processor: int = 128,
-        hidden_dim_node_encoder: int = 128,
-        num_layers_node_encoder: int = 2,
-        hidden_dim_edge_encoder: int = 128,
-        num_layers_edge_encoder: int = 2,
-        hidden_dim_node_decoder: int = 128,
-        num_layers_node_decoder: int = 2,
-        k: int = 3,
-        aggregation: str = "mean",
-    ):
-        super(Mesh_Reduced, self).__init__()
-        self.knn_encoder_already = False
-        self.knn_decoder_already = False
-        self.encoder_processor = MeshGraphNet(
-            
-        )
-        
-        self.decoder_processor = MeshGraphNet(...)
+class MeshReduce(nn.Module):
+    def __init__(self, 
+                 input_node_features_dim: int,
+                 input_edge_features_dim: int,
+                 output_node_features_dim: int,
+                 internal_width: int,
+                 message_passing_steps: int,
+                 num_layers: int,
+                 k: int = 3
+                 ):
+        super(MeshReduce, self).__init__()
+        self.input_node_features_dim = input_node_features_dim
+        self.input_edge_features_dim = input_edge_features_dim
+        self.output_node_features_dim = output_node_features_dim
+        self.internal_width = internal_width
+        self.message_passing_steps = message_passing_steps
+        self.num_layers = num_layers
         self.k = k
-        self.PivotalNorm = torch.nn.LayerNorm(output_encode_dim)
+        self.PivotalNorm = torch.nn.LayerNorm(output_node_features_dim)
+
+        self.encoder_processor = MeshGraphNet(
+            output_size=output_node_features_dim,
+            latent_size=internal_width,
+            num_layers=num_layers,
+            n_nodefeatures=input_node_features_dim,
+            n_edgefeatures_mesh=input_edge_features_dim,
+            n_edgefeatures_world=input_edge_features_dim,
+            message_passing_steps=message_passing_steps//2
+        )
+
+        self.decoder_processor = MeshGraphNet(
+            output_size=input_node_features_dim,
+            latent_size=internal_width,
+            num_layers=num_layers,
+            n_nodefeatures=output_node_features_dim,
+            n_edgefeatures_mesh=input_edge_features_dim,
+            n_edgefeatures_world=input_edge_features_dim,
+            message_passing_steps=message_passing_steps//2
+        )
 
     def knn_interpolate(
         self,
@@ -50,7 +59,7 @@ class Mesh_Reduced(nn.Module):
         batch_x: torch.Tensor = None,
         batch_y: torch.Tensor = None,
         k: int = 3,
-        num_workers: int = 1,
+        num_workers: int = 4,
     ):
         with torch.no_grad():
             assign_index = torch_cluster.knn(
@@ -133,80 +142,6 @@ class Mesh_Reduced(nn.Module):
     #     sample = self.encode(sample)
 
     #     return self.decode(sample)
-
-
-class MeshReduced_yyy(nn.Module):
-    def __init__(self, 
-                 input_node_features_dim: int,
-                 input_edge_features_dim: int,
-                 output_node_features_dim: int,
-                 internal_width: int,
-                 message_passing_steps: int,
-                 num_layers: int,
-                 k: int = 3
-                 ):
-        super(MeshReduced_yyy, self).__init__()
-        self.input_node_features_dim = input_node_features_dim
-        self.input_edge_features_dim = input_edge_features_dim
-        self.output_node_features_dim = output_node_features_dim
-        self.internal_width = internal_width
-        self.message_passing_steps = message_passing_steps
-        self.num_layers = num_layers
-        self.k = k
-        self.PivotalNorm = torch.nn.LayerNorm(output_node_features_dim)
-
-        self.encoder_processor = MeshGraphNet(
-            output_size=output_node_features_dim,
-            latent_size=internal_width,
-            num_layers=num_layers,
-            n_nodefeatures=input_node_features_dim,
-            n_edgefeatures_mesh=input_edge_features_dim,
-            n_edgefeatures_world=input_edge_features_dim,
-            message_passing_steps=message_passing_steps//2
-        )
-
-        self.decoder_processor = MeshGraphNet(
-            output_size=input_node_features_dim,
-            latent_size=internal_width,
-            num_layers=num_layers,
-            n_nodefeatures=output_node_features_dim,
-            n_edgefeatures_mesh=input_edge_features_dim,
-            n_edgefeatures_world=input_edge_features_dim,
-            message_passing_steps=message_passing_steps//2
-        )
-
-    def knn_interpolate(
-        self,
-        x: torch.Tensor,
-        pos_x: torch.Tensor,
-        pos_y: torch.Tensor,
-        batch_x: torch.Tensor = None,
-        batch_y: torch.Tensor = None,
-        k: int = 3,
-        num_workers: int = 1,
-    ):
-        with torch.no_grad():
-            assign_index = torch_cluster.knn(
-                pos_x,
-                pos_y,
-                k,
-                batch_x=batch_x,
-                batch_y=batch_y,
-                num_workers=num_workers,
-            )
-            y_idx, x_idx = assign_index[0], assign_index[1]
-            diff = pos_x[x_idx] - pos_y[y_idx]
-            squared_distance = (diff * diff).sum(dim=-1, keepdim=True)
-            weights = 1.0 / torch.clamp(squared_distance, min=1e-16)
-
-        y = torch_scatter.scatter(
-            x[x_idx] * weights, y_idx, 0, dim_size=pos_y.size(0), reduce="sum"
-        )
-        y = y / torch_scatter.scatter(
-            weights, y_idx, 0, dim_size=pos_y.size(0), reduce="sum"
-        )
-
-        return y.float(), x_idx, y_idx, weights
 
 
 
