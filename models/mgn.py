@@ -4,8 +4,12 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torch_geometric.data import Batch
-from gn_block import GraphNetBlock
+from models.gn_block import GraphNetBlock
 from utils.dataset import EncoderDecoderDataset
+
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class MLP(nn.Module):

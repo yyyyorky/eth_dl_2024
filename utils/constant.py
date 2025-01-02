@@ -13,8 +13,8 @@ class Constant:
         self.num_layers = 2
         self.latent_size = 64
         self.output_size = 3
-        self.lr = 5e-4
-        self.num_epochs = 100
+        self.lr = 1e-3
+        self.num_epochs = 200
 
 
 if __name__ == "__main__":
