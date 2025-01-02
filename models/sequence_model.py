@@ -22,7 +22,6 @@ class SequenceModel(nn.Module):
         self,
         input_dim: int,
         input_context_dim: int,
-        dist,
         dropout_rate: float = 0,
         num_layers_decoder: int = 3,
         num_heads: int = 8,
@@ -35,7 +34,6 @@ class SequenceModel(nn.Module):
 
         self.input_dim = input_dim
         self.input_context_dim = input_context_dim
-        self.dist = dist
         self.dropout_rate = dropout_rate
         self.num_layers_decoder = num_layers_decoder
         self.num_heads = num_heads
@@ -43,6 +41,17 @@ class SequenceModel(nn.Module):
         self.num_layers_context_encoder = num_layers_context_encoder
         self.num_layers_input_encoder = num_layers_input_encoder
         self.num_layers_output_encoder = num_layers_output_encoder
+
+        decoder_norm =nn.LayerNorm(input_dim, eps=1e-5, bias=True)
+        self.decoder = TransformerDecoder(
+            DecoderLayer,
+            num_layers=self.num_layers_decoder,
+            norm=decoder_norm,
+            d_model=input_dim,
+            nhead=num_heads,
+            dim_feedforward=input_dim * dim_feedforward_scale,
+            dropout=dropout_rate,
+        )
 
 
 
