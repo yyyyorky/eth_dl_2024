@@ -5,6 +5,7 @@ from torch import nn
 from torch_geometric.data import Batch, Data, HeteroData
 from torch_geometric.nn import MessagePassing
 from torch_geometric.typing import Size
+from typing import Union
 
 import sys
 import os
@@ -49,7 +50,7 @@ class GraphNetBlock(MessagePassing):
         return out_features
 
     
-    def update_mesh_edge_features(self, sample: HeteroData):
+    def update_mesh_edge_features(self, sample: Union[HeteroData, Batch]):
         node_features = sample['fluid'].node_attr
         edge_features = sample['fluid', 'm_e', 'fluid'].edge_attr
         edge_index = sample['fluid', 'm_e', 'fluid'].edge_index
@@ -91,7 +92,7 @@ class GraphNetBlock(MessagePassing):
         out_features = self.node_processor(input_features)
         return out_features
     
-    def propagate(self, sample: HeteroData):
+    def propagate(self, sample: Union[HeteroData, Batch]):
         N_fluid = sample['fluid'].node_attr.shape[0]
         N_env = sample['env'].node_attr.shape[0]
 
