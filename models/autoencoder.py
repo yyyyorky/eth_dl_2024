@@ -9,7 +9,8 @@ import torch.nn.functional as F
 import torch_cluster
 import torch_scatter
 from models.mgn import MeshGraphNet
-from utils.dataset import EncoderDecoderDataset
+#IMPORTANT: Please only uncomment the following line if you are running this script independently
+# from utils.dataset import EncoderDecoderDataset
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -87,6 +88,7 @@ class MeshReduce(nn.Module):
         return y.float(), x_idx, y_idx, weights
 
     def encode(self, sample, position_mesh, position_pivotal, batch_size):
+        sample = sample.clone()
         sample = self.encoder_processor(sample)
         node_features = self.PivotalNorm(sample['fluid'].node_attr)
         sample['fluid'].node_attr = node_features
@@ -127,6 +129,7 @@ class MeshReduce(nn.Module):
         return sample
 
     def decode(self, sample, position_mesh, position_pivotal, batch_size):
+        sample = sample.clone()
         node_features = sample['fluid'].node_attr
         
         # Get total number of nodes
@@ -166,18 +169,18 @@ class MeshReduce(nn.Module):
     
     def forward(self, sample, position_mesh, position_pivotal, batch_size):
         """Encodes and processes a multigraph, and returns node features."""
-        sample = self.encode(sample, position_mesh, position_pivotal, batch_size)
+        out = sample
+        out = self.encode(out, position_mesh, position_pivotal, batch_size)
 
-        return self.decode(sample, position_mesh, position_pivotal, batch_size)
+        return self.decode(out, position_mesh, position_pivotal, batch_size)
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-import numpy as np
-from utils import constant
-
-C = constant.Constant()
-
 if __name__ == '__main__':
+    import numpy as np
+    from utils import constant
+
+    C = constant.Constant()
     # Fix the bug: output_node_features_dim: 3 -> 64
     output_node_features_dim: int = 3
     internal_width: int = 64

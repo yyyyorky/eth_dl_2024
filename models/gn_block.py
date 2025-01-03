@@ -10,7 +10,8 @@ from typing import Union
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.dataset import EncoderDecoderDataset
+# IMPORTANT: Please only uncomment the following import statement when running this script independently
+# from utils.dataset import EncoderDecoderDataset
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 class GraphNetBlock(MessagePassing):

@@ -9,7 +9,8 @@ import torch.nn as nn
 import numpy as np
 from torch_geometric.data import Batch
 from models.gn_block import GraphNetBlock
-from utils.dataset import EncoderDecoderDataset
+# IMPORTANT: Please only uncomment the following import statement when running this script independently
+# from utils.dataset import EncoderDecoderDataset
 
 
 class MLP(nn.Module):
