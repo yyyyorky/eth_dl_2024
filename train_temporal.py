@@ -35,7 +35,7 @@ tsl_dataset = TemporalSequenceLatentDataset(
                                             position_pivotal=position_pivotal,
                                             produce_latent=False)
 
-tsl_loader = DataLoader(tsl_dataset, batch_size=51, shuffle=True)
+tsl_loader = DataLoader(tsl_dataset, batch_size=len(tsl_dataset), shuffle=True)
 
 model = SequenceModel(
     input_dim=C.token_size,
@@ -50,7 +50,7 @@ model = SequenceModel(
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 model.train()
-epochs = C.num_epochs*1000
+epochs = C.num_epochs*250
 print_freq = 20
 optimizer = torch.optim.AdamW(
     model.parameters(),
