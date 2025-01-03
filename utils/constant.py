@@ -16,6 +16,12 @@ class Constant:
         self.lr = 1e-3
         self.num_epochs = 200
         self.nodes_per_mesh = 1699
+        self.nodes_pivotal = 256
+        self.token_size = self.nodes_pivotal * self.node_features
+        self.temporal_docoder_layers = 3
+        self.context_dim = 1
+        self.time_steps = 401
+        self.lr_decay_rate = 0.99
 
 
 if __name__ == "__main__":

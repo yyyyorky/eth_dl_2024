@@ -9,37 +9,9 @@ import torch.nn as nn
 import numpy as np
 from torch_geometric.data import Batch
 from models.gn_block import GraphNetBlock
+from models.mlp import MLP
 # IMPORTANT: Please only uncomment the following import statement when running this script independently
 # from utils.dataset import EncoderDecoderDataset
-
-
-class MLP(nn.Module):
-    def __init__(self, widths, act_fun=nn.ReLU, activate_final=None):
-        super().__init__()
-
-        layers = []
-
-        n_in = widths[0]
-        for i, w in enumerate(widths[1:-1]):
-            linear = nn.Linear(n_in, w)
-            layers.append(linear)
-
-            act = act_fun()
-            layers.append(act)
-
-            n_in = w
-
-        linear = nn.Linear(n_in, widths[-1])
-        layers.append(linear)
-
-        if activate_final is not None:
-            act = activate_final()
-            layers.append(act)
-
-        self.layers = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.layers(x)
 
 class MeshGraphNet(nn.Module):
     def __init__(self, output_size: int, latent_size: int, num_layers: int, n_nodefeatures: int,

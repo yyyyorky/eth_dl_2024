@@ -14,38 +14,7 @@ C = Constant()
 #for testing
 from utils.dataset import TemporalSequenceLatentDataset
 from torch.utils.data import DataLoader
-
-
-
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-class MLP(nn.Module):
-    """Builds an MLP by given a list of widths."""
-    def __init__(self, widths, act_fun=nn.ReLU, activate_final=None):
-        super().__init__()
-
-        layers = []
-
-        n_in = widths[0]
-        for i, w in enumerate(widths[1:-1]):
-            linear = nn.Linear(n_in, w)
-            layers.append(linear)
-
-            act = act_fun()
-            layers.append(act)
-
-            n_in = w
-
-        linear = nn.Linear(n_in, widths[-1])
-        layers.append(linear)
-
-        if activate_final is not None:
-            act = activate_final()
-            layers.append(act)
-
-        self.layers = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.layers(x)
+from models.mlp import MLP
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -93,7 +62,6 @@ class SequenceModel(nn.Module):
         self.context_encoder = self._make_mlp(input_context_dim, input_dim, num_layers=num_layers_context_encoder)
 
     def _make_mlp(self, input_size: int, output_size: int, layer_norm: bool = True, num_layers = 2) -> nn.Module:
-        """Builds an MLP by given a list of widths."""
         widths = [input_size] + [input_size * 2] * num_layers + [output_size]
         network = MLP(widths, activate_final=None)
         if layer_norm:
