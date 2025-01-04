@@ -45,7 +45,7 @@ class EncoderDecoderDataset(Dataset):
     """PyTorch Geometric Dataset for Graph Autoencoder
     Parameters
     ----------
-    data_dir : str
+    data_dir : str [sample_number, time_steps, nodes_num, nodes_features]
         The directory of the data
     split : str
         Dataset split ["train", "test"]

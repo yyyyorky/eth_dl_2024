@@ -11,6 +11,7 @@ import numpy as np
 import random
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from torch.cuda.amp import GradScaler, autocast
 
 C = Constant()
 
@@ -25,8 +26,8 @@ def set_seed(seed = C.seed+7):
 set_seed()
 
 retrain = True
-batch_size = C.batch_size
-num_epochs = C.num_epochs * 2
+batch_size = 20
+num_epochs = 301
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 train_dataset = EncoderDecoderDataset()
@@ -42,14 +43,14 @@ model = MeshReduce(
     input_edge_features_dim=C.edge_features,
     output_node_features_dim=C.node_features,
     internal_width=C.latent_size,
-    message_passing_steps=C.message_passing_steps,
+    message_passing_steps=C.message_passing_steps*2,
     num_layers=C.num_layers
 ).to(C.device)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=C.lr)
+optimizer = torch.optim.Adam(model.parameters(), lr=C.lr*0.1)
 criterion = nn.MSELoss()
-scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999999)
-
+scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9999991)
+scalar = GradScaler()
 
 if retrain:
     model.train()

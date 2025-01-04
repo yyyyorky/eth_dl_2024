@@ -126,6 +126,9 @@ class MeshReduce(nn.Module):
         )
         
         sample['fluid'].node_attr = node_features
+
+        # TODO: sptaial attention
+        
         return sample
 
     def decode(self, sample, position_mesh, position_pivotal, batch_size):

@@ -53,7 +53,7 @@ with torch.no_grad():
         out = model.decode(out, position_mesh, position_pivotal, 1)
         denominator = torch.norm(sample['fluid'].node_attr, dim=1)
         numerator = torch.norm(out['fluid'].node_attr - sample['fluid'].node_target, dim=1)
-        error = torch.mean(numerator).item()
+        error = torch.mean(numerator/denominator).item()
         relative_l2_error += error
     relative_l2_error /= len(test_loader)
     print(f'Relative L2 error: {relative_l2_error}')

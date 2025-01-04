@@ -26,16 +26,15 @@ def set_seed(seed = C.seed+6):
 set_seed()
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-# Initialize the model
 position_mesh = torch.from_numpy(np.loadtxt(os.path.join(C.data_dir, "meshPosition_all.txt"))).to(C.device)
 position_pivotal = torch.from_numpy(np.loadtxt(os.path.join(C.data_dir, "meshPosition_pivotal.txt"))).to(C.device)
 tsl_dataset = TemporalSequenceLatentDataset( 
-                                            split='train', 
+                                            split='test', 
                                             position_mesh=position_mesh, 
                                             position_pivotal=position_pivotal,
                                             produce_latent=False)
 
-tsl_loader = DataLoader(tsl_dataset, batch_size=len(tsl_dataset), shuffle=True)
+tsl_loader = DataLoader(tsl_dataset, batch_size=1, shuffle=True)
 
 model = SequenceModel(
     input_dim=C.token_size,
@@ -48,56 +47,23 @@ model = SequenceModel(
     num_layers_output_encoder=C.num_layers,
 ).to(C.device)
 
-#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-model.train()
-epochs = C.num_epochs*250
-print_freq = 20
-optimizer = torch.optim.AdamW(
-    model.parameters(),
-    lr=C.lr*0.1,        # Lower learning rate
-    weight_decay=0.1,   # Increase regularization
-    betas=(0.9, 0.98)  # Adjust momentum
-)
-criterion = nn.MSELoss()
-scheduler = CosineAnnealingWarmRestarts(
-    optimizer,
-    T_0=100,                # Shorter cycles for transformers
-    eta_min=1e-5,
-    T_mult=2
-)
-scaler = GradScaler()
-
-for epoch in tqdm(range(epochs)):
-   epoch_loss = 0
-   for x, context in tsl_loader:
-       input = x[:, :C.time_steps-1]
-       target = x[:, 1:]
-       optimizer.zero_grad()
-       
-       # Forward pass with autocast for mixed precision
-       with autocast():
-           out = model(input, context)
-           loss = criterion(out, target)
-       
-       # Scale loss and compute gradients
-       scaler.scale(loss).backward()
-       
-       # Unscale gradients and clip
-       scaler.unscale_(optimizer)
-       torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-       
-       # Update weights
-       scaler.step(optimizer)
-       scaler.update()
-       
-       epoch_loss += loss.detach().item()
-   
-   scheduler.step()
-   if epoch % print_freq == 0:
-       print(f'Epoch {epoch}/{epochs}, loss: {epoch_loss:.6f}, lr: {scheduler.get_last_lr()[0]:.6f}')
-
-torch.save(model.state_dict(), os.path.join(C.data_dir, 'checkpoints', 'sequence_model.pth'))
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'sequence_model.pth'), weights_only=True)
+model.load_state_dict(state_dic)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
+model.eval()
+relative_l2_error = 0
+with torch.no_grad():
+    for i, (z, re) in enumerate(tqdm(tsl_loader)):
+        input = z[:, :-1] #shape: [batch_size, seq_len, nodes_num, nodes_features]
+        target = z[:, 1:]
+        out = model(input, re)
+        out = input.reshape(1, -1, C.token_size)
+        target = target.reshape(1, -1, C.token_size)
+        denominator = torch.norm(target, dim=2)
+        numerator = torch.norm(out - target, dim=2)
+        error = torch.mean(numerator/denominator).item()
+        relative_l2_error += error
+    relative_l2_error /= len(tsl_loader)
+    print(f'Relative L2 error: {relative_l2_error}')
+# %%
