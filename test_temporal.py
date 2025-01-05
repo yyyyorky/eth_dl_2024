@@ -66,4 +66,34 @@ with torch.no_grad():
         relative_l2_error += error
     relative_l2_error /= len(tsl_loader)
     print(f'Relative L2 error: {relative_l2_error}')
-# %%
+    
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+rollout_error = 0
+with torch.no_grad():
+    for i, (z, re) in enumerate(tqdm(tsl_loader)):
+        input = z[:, 0].unsqueeze(1)  # shape: [batch_size, seq_len, nodes_num, nodes_features]
+        target = z[:, 1:]  # true future sequence
+        out = input  # start with the given initial input
+
+        # Rollout: Iteratively predict the future sequence
+        predicted_sequence = []
+        for t in range(target.shape[1]):  # iterate over the target sequence length
+            next_out = model(out, re)  # generate one step ahead
+            predicted_sequence.append(next_out[:, -1:].clone())  # append the last predicted step
+            out = torch.cat((out, next_out[:, -1:]), dim=1)  # update input for the next step
+
+        # Stack the predicted sequence into the same shape as the target
+        predicted_sequence = torch.cat(predicted_sequence, dim=1)  # shape: [batch_size, seq_len, ...]
+
+        # Reshape for error calculation
+        predicted_sequence = predicted_sequence.reshape(1, -1, C.token_size)
+        target = target.reshape(1, -1, C.token_size)
+
+        # Calculate rollout error
+        denominator = torch.norm(target, dim=2) + 1e-8  # add epsilon to avoid division by zero
+        numerator = torch.norm(predicted_sequence - target, dim=2)
+        error = torch.mean(numerator / denominator).item()
+        rollout_error += error
+
+    rollout_error /= len(tsl_loader)
+    print(f'Rollout Error: {rollout_error}')
