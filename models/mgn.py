@@ -1,44 +1,17 @@
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import functools
 import torch
 import torch.nn as nn
 import numpy as np
 from torch_geometric.data import Batch
 from models.gn_block import GraphNetBlock
-from utils.dataset import EncoderDecoderDataset
-
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-
-class MLP(nn.Module):
-    def __init__(self, widths, act_fun=nn.ReLU, activate_final=None):
-        super().__init__()
-
-        layers = []
-
-        n_in = widths[0]
-        for i, w in enumerate(widths[1:-1]):
-            linear = nn.Linear(n_in, w)
-            layers.append(linear)
-
-            act = act_fun()
-            layers.append(act)
-
-            n_in = w
-
-        linear = nn.Linear(n_in, widths[-1])
-        layers.append(linear)
-
-        if activate_final is not None:
-            act = activate_final()
-            layers.append(act)
-
-        self.layers = nn.Sequential(*layers)
-
-    def forward(self, x):
-        return self.layers(x)
+from models.mlp import MLP
+# IMPORTANT: Please only uncomment the following import statement when running this script independently
+# from utils.dataset import EncoderDecoderDataset
 
 class MeshGraphNet(nn.Module):
     def __init__(self, output_size: int, latent_size: int, num_layers: int, n_nodefeatures: int,
@@ -123,15 +96,21 @@ class MeshGraphNet(nn.Module):
         sample['fluid'].node_attr = out_features
         return sample
 
-    def forward(self, sample) -> torch.Tensor:
-        """Encodes and processes a multigraph, and returns node features."""
-        sample = sample.clone()
-        sample = self._encode(sample)
+    def forward(self, sample) -> Batch:
+        """
+        Encodes and processes a multigraph, and returns node features.
+        Only change the node features, the edge features are not changed.
+        """
+        out = sample.clone()
+        out = self._encode(out)
 
         for i in range(self._message_passing_steps):
-            sample = self.processor_steps[i](sample)
+            out = self.processor_steps[i](out)
+        out = self._decode(out)
 
-        return self._decode(sample)
+        sample['fluid'].node_attr = out['fluid'].node_attr
+
+        return sample
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

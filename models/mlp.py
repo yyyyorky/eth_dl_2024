@@ -2,6 +2,9 @@ import torch.nn as nn
 import torch
 
 class MLP(nn.Module):
+    '''
+    Builds an MLP by given a list of widths.
+    '''
     def __init__(self, widths, act_fun=nn.GELU, activate_final=None):
         super().__init__()
 

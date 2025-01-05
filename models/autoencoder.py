@@ -2,12 +2,15 @@
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch_cluster
 import torch_scatter
 from models.mgn import MeshGraphNet
+#IMPORTANT: Please only uncomment the following line if you are running this script independently
+# from utils.dataset import EncoderDecoderDataset
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -46,8 +49,8 @@ class MeshReduce(nn.Module):
             latent_size=internal_width,
             num_layers=num_layers,
             n_nodefeatures=output_node_features_dim,
-            n_edgefeatures_mesh=input_edge_features_dim,
-            n_edgefeatures_world=input_edge_features_dim,
+            n_edgefeatures_mesh=output_node_features_dim,
+            n_edgefeatures_world=output_node_features_dim,
             message_passing_steps=message_passing_steps//2
         )
 
@@ -84,69 +87,131 @@ class MeshReduce(nn.Module):
 
         return y.float(), x_idx, y_idx, weights
 
-    def encode(self, sample, position_mesh, position_pivotal):
+    def encode(self, sample, position_mesh, position_pivotal, batch_size):
+        sample = sample.clone()
         sample = self.encoder_processor(sample)
         node_features = self.PivotalNorm(sample['fluid'].node_attr)
+        sample['fluid'].node_attr = node_features
         
-        nodes_index = torch.arange(node_features.shape[0]).to(node_features.device)
-        batch_mesh = nodes_index.repeat_interleave(node_features.shape[1])
-        position_mesh_batch = position_mesh.repeat(node_features.shape[0], 1)
-        position_pivotal_batch = position_pivotal.repeat(node_features.shape[0], 1)
-        batch_pivotal = nodes_index.repeat_interleave(
-            torch.tensor([len(position_pivotal)] * node_features.shape[0]).to(node_features.device)
-        )
+        # Get total number of nodes
+        total_nodes = node_features.shape[0]
+        nodes_per_batch = total_nodes // batch_size
+        
+        # Handle the last batch which might have remaining nodes
+        remaining_nodes = total_nodes % batch_size
+        
+        # Create batch indices accounting for uneven last batch
+        nodes_index = torch.arange(batch_size).to(node_features.device)
+        if remaining_nodes == 0:
+            batch_mesh = torch.repeat_interleave(nodes_index, nodes_per_batch)
+        else:
+            # Create list of nodes per batch with last batch having the remainder
+            nodes_per_batch_list = [nodes_per_batch] * (batch_size - 1) + [nodes_per_batch + remaining_nodes]
+            batch_mesh = torch.repeat_interleave(nodes_index, torch.tensor(nodes_per_batch_list).to(node_features.device))
+        
+        # Create pivotal batch indices
+        pivotal_nodes_per_batch = len(position_pivotal)
+        batch_pivotal = torch.repeat_interleave(nodes_index, pivotal_nodes_per_batch)
+        
+        # Create position tensors
+        position_mesh_batch = position_mesh.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_mesh.shape[-1])
+        position_pivotal_batch = position_pivotal.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_pivotal.shape[-1])
 
         node_features, _, _, _ = self.knn_interpolate(
-                                        x=node_features,
-                                        pos_x=position_mesh_batch,
-                                        pos_y=position_pivotal_batch,
-                                        batch_x=batch_mesh,
-                                        batch_y=batch_pivotal,
+            x=node_features,
+            pos_x=position_mesh_batch,
+            pos_y=position_pivotal_batch,
+            batch_x=batch_mesh,
+            batch_y=batch_pivotal,
         )
         
         sample['fluid'].node_attr = node_features
 
-        #TODO: add the spatial information embedding to the pivotal nodes.
-        #      add spatial attention only to the pivotal nodes.
-        #      Here is it better to return a graph or only the tokenized nodes?
-
+        # TODO: sptaial attention
+        
         return sample
-    
 
-    def decode(self, sample, position_mesh, position_pivotal):
+    def decode(self, sample, position_mesh, position_pivotal, batch_size):
+        sample = sample.clone()
         node_features = sample['fluid'].node_attr
-
-        nodes_index = torch.arange(node_features.shape[0]).to(x.device)
-        batch_mesh = nodes_index.repeat_interleave(node_features.shape[1])
-        position_mesh_batch = position_mesh.repeat(node_features.shape[0], 1)
-        position_pivotal_batch = position_pivotal.repeat(node_features.shape[0], 1)
-        batch_pivotal = nodes_index.repeat_interleave(
-            torch.tensor([len(position_pivotal)] * node_features.shape[0]).to(x.device)
-        )
+        
+        # Get total number of nodes
+        total_nodes = node_features.shape[0]
+        pivotal_nodes_per_batch = total_nodes // batch_size
+        mesh_nodes_per_batch = len(position_mesh)
+        
+        # Handle the last batch which might have remaining nodes
+        remaining_nodes = total_nodes % batch_size
+        
+        # Create batch indices
+        nodes_index = torch.arange(batch_size).to(node_features.device)
+        batch_mesh = torch.repeat_interleave(nodes_index, mesh_nodes_per_batch)
+        
+        if remaining_nodes == 0:
+            batch_pivotal = torch.repeat_interleave(nodes_index, pivotal_nodes_per_batch)
+        else:
+            # Create list of nodes per batch with last batch having the remainder
+            nodes_per_batch_list = [pivotal_nodes_per_batch] * (batch_size - 1) + [pivotal_nodes_per_batch + remaining_nodes]
+            batch_pivotal = torch.repeat_interleave(nodes_index, torch.tensor(nodes_per_batch_list).to(node_features.device))
+        
+        # Create position tensors
+        position_mesh_batch = position_mesh.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_mesh.shape[-1])
+        position_pivotal_batch = position_pivotal.unsqueeze(0).expand(batch_size, -1, -1).reshape(-1, position_pivotal.shape[-1])
 
         node_features, _, _, _ = self.knn_interpolate(
-                                        x=node_features,
-                                        pos_x=position_pivotal_batch,
-                                        pos_y=position_mesh_batch,
-                                        batch_x=batch_pivotal,
-                                        batch_y=batch_mesh,
+            x=node_features,
+            pos_x=position_pivotal_batch,
+            pos_y=position_mesh_batch,
+            batch_x=batch_pivotal,
+            batch_y=batch_mesh,
         )
-        sample['fluid'].node_attr = node_features
-
-        sample = self.decoder_processor(sample)
         
+        sample['fluid'].node_attr = node_features
+        sample = self.decoder_processor(sample)
         return sample
     
-    # def forward(self, sample) -> torch.Tensor:
-    #     """Encodes and processes a multigraph, and returns node features."""
-    #     sample = self.encode(sample)
+    def forward(self, sample, position_mesh, position_pivotal, batch_size):
+        """Encodes and processes a multigraph, and returns node features."""
+        out = sample
+        out = self.encode(out, position_mesh, position_pivotal, batch_size)
 
-    #     return self.decode(sample)
-
-
-
+        return self.decode(out, position_mesh, position_pivotal, batch_size)
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if __name__ == '__main__':
-    pass
+    import numpy as np
+    from utils import constant
+
+    C = constant.Constant()
+    # Fix the bug: output_node_features_dim: 3 -> 64
+    output_node_features_dim: int = 3
+    internal_width: int = 64
+    num_layers: int = 2
+    input_node_features_dim: int = 3
+    input_edge_features_dim: int = 3
+    message_passing_steps: int = 16
+    
+    dataset = EncoderDecoderDataset()
+    sample = dataset[0]
+
+    enc_doc_model = MeshReduce(input_node_features_dim,
+                                input_edge_features_dim,
+                                output_node_features_dim,
+                                internal_width,
+                                message_passing_steps,
+                                num_layers).to('cuda')
+    
+    position_mesh = torch.from_numpy(np.loadtxt(os.path.join(C.data_dir, "meshPosition_all.txt"))).to("cuda")
+    position_pivotal = torch.from_numpy(np.loadtxt(os.path.join(C.data_dir, "meshPosition_pivotal.txt"))).to("cuda")
+    
+    encode_output = enc_doc_model.encode(sample, position_mesh, position_pivotal, 1)
+    
+    print(encode_output)
+    
+    decode_output = enc_doc_model.decode(encode_output, position_mesh, position_pivotal, 1)
+    
+    print(decode_output)
+
+    trial = enc_doc_model(sample, position_mesh, position_pivotal, 1)
+# %%

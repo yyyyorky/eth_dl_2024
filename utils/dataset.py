@@ -7,8 +7,11 @@ import numpy as np
 import torch
 from torch import nn
 from torch_geometric.data import Dataset, HeteroData
+from torch_geometric.loader import DataLoader
 import json
 from utils import constant
+from models.autoencoder import MeshReduce
+from tqdm import tqdm
 
 
 C = constant.Constant()
@@ -42,7 +45,7 @@ class EncoderDecoderDataset(Dataset):
     """PyTorch Geometric Dataset for Graph Autoencoder
     Parameters
     ----------
-    data_dir : str
+    data_dir : str [sample_number, time_steps, nodes_num, nodes_features]
         The directory of the data
     split : str
         Dataset split ["train", "test"]
@@ -206,7 +209,75 @@ class TemporalSequenceLatentDataset(Dataset):
         The sequence is a time series of latent tokens.
         For the time series of graphs, use the TemporalSequenceGraphDataset.
     '''
-    pass
+    def __init__(self, encoder = None, 
+                 sequence_len = 401,
+                 data_dir = C.data_dir ,
+                 split = 'train', 
+                 device=C.device,
+                 position_mesh=None,
+                 position_pivotal=None,
+                 produce_latent=True):
+        if not isinstance(encoder, MeshReduce) and produce_latent:
+            raise ValueError("encoder must be an instance of MeshReduce")
+        if position_mesh == None or position_pivotal == None:
+            raise ValueError("position_mesh and position_pivotal must be provided")
+        super(TemporalSequenceLatentDataset, self).__init__()
+        self.encoder = encoder
+        self.split = split
+        self.data_dir = data_dir
+        self.device = device
+        self.sequence_len = sequence_len
+        self.re = self.get_re_number()
+
+        if produce_latent:
+            self.save_latents(self.encoder, position_mesh, position_pivotal)
+        self.latents = torch.load(f"{self.data_dir}/latent_{self.split}.pt")
+
+        
+
+    def get_re_number(self):
+        """Get RE number"""
+        ReAll = torch.from_numpy(np.linspace(300, 1000, 101)).float().reshape([-1, 1]).to(self.device)
+        ReAll = ReAll/ReAll.max()
+        if self.split == "train":
+            index = [i for i in range(101) if i % 2 == 0]
+        else:
+            index = [i for i in range(101) if i % 2 == 1]
+        ReAll = ReAll[index]
+        return ReAll
+    
+    @torch.no_grad()
+    def save_latents(self, Encoder, position_mesh, position_pivotal):
+        Encoder.to(C.device)
+        Encoder.eval()
+        if self.split == "train":
+            dataset = EncoderDecoderDataset(split="train")
+
+        else:
+            dataset = EncoderDecoderDataset(split="test")
+
+        dataloader = DataLoader(
+            dataset, batch_size=1, shuffle=False
+        )
+        record_z = []
+        for i, data in enumerate(tqdm(dataloader)):
+            data = data.to(C.device)
+            out = Encoder.encode(data, position_mesh, position_pivotal, 1)
+            z = out['fluid'].node_attr
+            z = z.unsqueeze(0)
+            record_z.append(z)
+
+        record_z = torch.cat(record_z, dim=0) #shape: [num_samples, num_pivotal_nodes, num_latent_features]
+        torch.save(record_z, f"{self.data_dir}/latent_{self.split}.pt")
+    
+    def len(self):
+        return self.latents.shape[0] // self.sequence_len
+    
+    def get(self, idx):
+        z = self.latents[idx * self.sequence_len : (idx + 1) * self.sequence_len]
+        re =  self.re[idx]
+        return z, re
+        
 
 class TemporalSequenceGraphDataset(Dataset):
     '''PyTorch Geometric Dataset for Temporal Graph Sequence
