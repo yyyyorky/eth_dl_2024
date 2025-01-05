@@ -12,6 +12,7 @@ from tqdm import tqdm
 from models.sequence_model import SequenceModel
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
+from models.autoencoder import MeshReduce
 
 C = Constant()
 
@@ -97,3 +98,22 @@ with torch.no_grad():
 
     rollout_error /= len(tsl_loader)
     print(f'Rollout Error: {rollout_error}')
+
+
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+position_mesh = torch.from_numpy(np.loadtxt(os.path.join(C.data_dir, "meshPosition_all.txt"))).to(C.device)
+position_pivotal = torch.from_numpy(np.loadtxt(os.path.join(C.data_dir, "meshPosition_pivotal.txt"))).to(C.device)
+
+model = MeshReduce(
+    input_node_features_dim=C.node_features,
+    input_edge_features_dim=C.edge_features,
+    output_node_features_dim=C.node_features,
+    internal_width=C.latent_size,
+    message_passing_steps=C.message_passing_steps,
+    num_layers=C.num_layers
+).to(C.device)
+
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder_backup.pth'), weights_only=True)
+model.load_state_dict(state_dic)
+model.eval()
+# %%
