@@ -71,18 +71,18 @@ torch.save(state_dict, save_path)
 
 # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 #one step prediction
-test_dataset = OneStepGraphDataset(split='test')
-test_loader = DataLoader(test_dataset, batch_size=10, shuffle=False)
-relative_l2_error = 0
-model.eval()
-with torch.no_grad():
-    for i, sample in enumerate(tqdm(test_loader)):
-        out = model(sample)
-        denominator = torch.norm(sample['fluid'].node_target, dim=1)
-        numerator = torch.norm(out['fluid'].node_attr - sample['fluid'].node_target, dim=1)
-        relative_l2_error += torch.mean(numerator / denominator).item()
+# test_dataset = OneStepGraphDataset(split='test')
+# test_loader = DataLoader(test_dataset, batch_size=10, shuffle=False)
+# relative_l2_error = 0
+# model.eval()
+# with torch.no_grad():
+#     for i, sample in enumerate(tqdm(test_loader)):
+#         out = model(sample)
+#         denominator = torch.norm(sample['fluid'].node_target, dim=1)
+#         numerator = torch.norm(out['fluid'].node_attr - sample['fluid'].node_target, dim=1)
+#         relative_l2_error += torch.mean(numerator / denominator).item()
 
-print(f'Relative L2 error: {relative_l2_error / len(test_loader)}')
+# print(f'Relative L2 error: {relative_l2_error / len(test_loader)}')
 
 
 # %%
@@ -92,10 +92,12 @@ num_steps = test_dataset[0]['fluid'].node_target.shape[0]
 #IMPORTANT: batch size must be 1 for rollout
 test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 relative_l2_error_hist = torch.zeros(num_steps, dtype=torch.float32, device=C.device)
+result_list = []
 model.eval()
 with torch.no_grad():
     for i, sample in enumerate(tqdm(test_loader)):
         result = rollout(model, sample, num_steps)
+        result_list.append(result)
         target = sample['fluid'].node_target
         denominator = torch.norm(target, dim=1)
         numerator = torch.norm(result - target, dim=1)
@@ -103,6 +105,10 @@ with torch.no_grad():
 relative_l2_error_hist /= len(test_loader)
 #%%
 plt.plot(relative_l2_error_hist.cpu().numpy())
+total_result = torch.stack(result_list, dim=0).cpu().numpy()
+#%%
+np.save(C.data_dir + 'rollout_result_vanilla_mgn.npy', total_result)
+
 
 
 

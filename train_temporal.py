@@ -40,7 +40,7 @@ tsl_loader = DataLoader(tsl_dataset, batch_size=len(tsl_dataset), shuffle=True)
 model = SequenceModel(
     input_dim=C.token_size,
     input_context_dim= C.context_dim,
-    num_layers_decoder=C.temporal_docoder_layers,
+    num_layers_decoder=C.temporal_docoder_layers * 2,
     num_heads=8,
     dim_feedforward_scale=8,
     num_layers_context_encoder=C.num_layers,
@@ -50,21 +50,14 @@ model = SequenceModel(
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 model.train()
-epochs = C.num_epochs*250
+epochs = C.num_epochs*1000
 print_freq = 20
 optimizer = torch.optim.AdamW(
     model.parameters(),
-    lr=C.lr*0.1,        # Lower learning rate
-    weight_decay=0.1,   # Increase regularization
-    betas=(0.9, 0.98)  # Adjust momentum
+    lr=C.lr*0.01,        # Lower learning rate
 )
 criterion = nn.MSELoss()
-scheduler = CosineAnnealingWarmRestarts(
-    optimizer,
-    T_0=100,                # Shorter cycles for transformers
-    eta_min=1e-5,
-    T_mult=2
-)
+scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9999991)
 scaler = GradScaler()
 
 for epoch in tqdm(range(epochs)):

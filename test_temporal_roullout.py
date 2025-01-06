@@ -54,11 +54,11 @@ mesh_reduced_model = MeshReduce(
     input_edge_features_dim=C.edge_features,
     output_node_features_dim=C.node_features,
     internal_width=C.latent_size,
-    message_passing_steps=C.message_passing_steps,
+    message_passing_steps=C.message_passing_steps*2,
     num_layers=C.num_layers
 ).to(C.device)
 
-state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder_backup.pth'), weights_only=True)
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder.pth'), weights_only=True)
 mesh_reduced_model.load_state_dict(state_dic)
 mesh_reduced_model.eval()
 
@@ -80,9 +80,10 @@ def denormalize(invar, std, mu):
 rollout_error_u = 0
 rollout_error_v = 0
 rollout_error_p = 0
-
+sample_number = len(test_loader)
 # Disable gradient computation for efficiency
 with torch.no_grad():
+    error_hist = torch.zeros([sample_number, C.time_steps-1])
     # Iterate over the test dataset
     for i, sample in enumerate(tqdm(test_loader)):
         # Encode the current sample using the mesh-reduced model

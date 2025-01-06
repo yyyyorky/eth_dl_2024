@@ -48,7 +48,7 @@ model = SequenceModel(
     num_layers_output_encoder=C.num_layers,
 ).to(C.device)
 
-state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'sequence_model.pth'), weights_only=True)
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'sequence_model_backup.pth'), weights_only=True)
 model.load_state_dict(state_dic)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

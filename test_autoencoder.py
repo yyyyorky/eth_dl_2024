@@ -37,7 +37,7 @@ model = MeshReduce(
     input_edge_features_dim=C.edge_features,
     output_node_features_dim=C.node_features,
     internal_width=C.latent_size,
-    message_passing_steps=C.message_passing_steps,
+    message_passing_steps=C.message_passing_steps*2,
     num_layers=C.num_layers
 ).to(C.device)
 
