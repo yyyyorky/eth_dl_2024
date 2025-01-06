@@ -80,7 +80,12 @@ def denormalize(invar, std, mu):
 rollout_error_u = 0
 rollout_error_v = 0
 rollout_error_p = 0
-sample_number = len(test_loader)
+
+sum_rollout_error_u = 0
+sum_rollout_error_v = 0
+sum_rollout_error_p = 0
+iteration = 0
+
 # Disable gradient computation for efficiency
 with torch.no_grad():
     error_hist = torch.zeros([sample_number, C.time_steps-1])
@@ -136,10 +141,18 @@ with torch.no_grad():
             rollout_error_p /= (sequence_len - 1)
             print(f'At {i}, Rollout Error u: {rollout_error_u}, Rollout Error v: {rollout_error_v}, Rollout Error p: {rollout_error_p}')
             
+            sum_rollout_error_u += rollout_error_u
+            sum_rollout_error_v += rollout_error_v
+            sum_rollout_error_p += rollout_error_p
+            
+            iteration += 1
+            
             # Reset errors for the next sequence
             rollout_error_u = 0
             rollout_error_v = 0
             rollout_error_p = 0
+    
+    print(f'Totally, Rollout Error u: {sum_rollout_error_u / iteration}, Rollout Error v: {sum_rollout_error_v / iteration}, Rollout Error p: {sum_rollout_error_p / iteration}')
 
 
 # %%
