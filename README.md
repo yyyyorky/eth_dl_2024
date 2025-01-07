@@ -2,7 +2,7 @@
 
 # Data 
 
-Download data from https://polybox.ethz.ch/index.php/s/cnHDWlZ9uePKhso
+Download data from https://polybox.ethz.ch/index.php/s/yZGBaAnA1EfFy1D
 
 Put all the file inside the archive at `./data` so that it looks like
 
@@ -13,6 +13,8 @@ project_root/
 │   └── ...
 └── ...
 ```
+
+Before run model, please compute `latent_test.pt` and `latent_train.pt` using `utils.dataset.TemporalSequenceLatentDataset` with `produce_latent = True`
 
 # Env
 Create environment using conda
@@ -28,6 +30,7 @@ Then install `torch_cluster` and `torch_scatter`. It is recommended to use conda
 pip install pyg_lib torch_scatter torch_sparse torch_cluster torch_spline_conv -f https://data.pyg.org/whl/torch-2.0.0+cu117.html
 ```
 or
+
 ```bash
 conda install pytorch-scatter -c pyg
 conda install pytorch-cluster -c pyg

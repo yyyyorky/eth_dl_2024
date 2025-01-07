@@ -13,6 +13,7 @@ from models.sequence_model import SequenceModel
 from torch.cuda.amp import GradScaler, autocast
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from models.autoencoder import MeshReduce
+from matplotlib import pyplot as plt
 
 C = Constant()
 
@@ -36,7 +37,7 @@ test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 seq_model = SequenceModel(
     input_dim=C.token_size,
     input_context_dim= C.context_dim,
-    num_layers_decoder=C.temporal_docoder_layers,
+    num_layers_decoder=C.temporal_docoder_layers*2,
     num_heads=8,
     dim_feedforward_scale=8,
     num_layers_context_encoder=C.num_layers,
@@ -85,14 +86,17 @@ sum_rollout_error_u = 0
 sum_rollout_error_v = 0
 sum_rollout_error_p = 0
 iteration = 0
+error_record = torch.zeros(sequence_len-1, len(test_loader)//sequence_len, 3)
 
 # Disable gradient computation for efficiency
 with torch.no_grad():
-    error_hist = torch.zeros([sample_number, C.time_steps-1])
     # Iterate over the test dataset
     for i, sample in enumerate(tqdm(test_loader)):
         # Encode the current sample using the mesh-reduced model
         z_sample = mesh_reduced_model.encode(sample, position_mesh, position_pivotal, 1).clone()
+
+        sid = i // sequence_len
+        tid = i % sequence_len
         
         # Check if we are at the start of a new sequence
         if i % sequence_len == 0:
@@ -120,19 +124,25 @@ with torch.no_grad():
             denominator_u = torch.norm(denormalize(sample['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0]))
             numerator_u = torch.norm(denormalize(sample['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0]) - 
                                        denormalize(decode_out['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0]))
-            rollout_error_u += torch.mean(numerator_u / denominator_u).item()
+            error_u = torch.mean(numerator_u / denominator_u).item()
+            error_record[tid-1, sid, 0] = error_u
+            rollout_error_u += error_u      
             
             # Error for v
             denominator_v = torch.norm(denormalize(sample['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1]))
             numerator_v = torch.norm(denormalize(sample['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1]) - 
                                        denormalize(decode_out['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1]))
-            rollout_error_v += torch.mean(numerator_v / denominator_v).item()
+            error_v = torch.mean(numerator_v / denominator_v).item()
+            error_record[tid-1, sid, 1] = error_v
+            rollout_error_v += error_v
             
             # Error for p
             denominator_p = torch.norm(denormalize(sample['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2]))
             numerator_p = torch.norm(denormalize(sample['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2]) - 
                                        denormalize(decode_out['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2]))
-            rollout_error_p += torch.mean(numerator_p / denominator_p).item()
+            error_p = torch.mean(numerator_p / denominator_p).item()
+            error_record[tid-1, sid, 2] = error_p
+            rollout_error_p += error_p
         
         # At the end of the sequence, normalize and print the accumulated errors
         if i % sequence_len == sequence_len - 1:
@@ -153,6 +163,13 @@ with torch.no_grad():
             rollout_error_p = 0
     
     print(f'Totally, Rollout Error u: {sum_rollout_error_u / iteration}, Rollout Error v: {sum_rollout_error_v / iteration}, Rollout Error p: {sum_rollout_error_p / iteration}')
+
+
+# %%
+error_hist = error_record.mean(dim=-1).mean(dim=-1).cpu().numpy()
+plt.plot(error_hist)
+np.save(C.data_dir + 'result/rollout_error_temporal.npy', error_hist)
+
 
 
 # %%

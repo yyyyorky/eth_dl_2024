@@ -21,7 +21,6 @@ def rollout(model: nn.Module,
             ) -> Batch:
     """
     in rollout we predict the future states of the system given the initial state
-    we use target to store the predicted states for convenience
     """
     result_list = []
     sample = initial
@@ -35,3 +34,5 @@ def rollout(model: nn.Module,
     
     
 
+
+# %%

@@ -40,7 +40,7 @@ tsl_loader = DataLoader(tsl_dataset, batch_size=1, shuffle=True)
 model = SequenceModel(
     input_dim=C.token_size,
     input_context_dim= C.context_dim,
-    num_layers_decoder=C.temporal_docoder_layers,
+    num_layers_decoder=C.temporal_docoder_layers*2,
     num_heads=8,
     dim_feedforward_scale=8,
     num_layers_context_encoder=C.num_layers,
@@ -48,7 +48,7 @@ model = SequenceModel(
     num_layers_output_encoder=C.num_layers,
 ).to(C.device)
 
-state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'sequence_model_backup.pth'), weights_only=True)
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'sequence_model.pth'), weights_only=True)
 model.load_state_dict(state_dic)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
