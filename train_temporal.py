@@ -96,7 +96,7 @@ for epoch in tqdm(range(epochs)):
    if epoch % print_freq == 0:
        print(f'Epoch {epoch}/{epochs}, loss: {epoch_loss:.6f}, lr: {scheduler.get_last_lr()[0]:.6f}')
 
-torch.save(model.state_dict(), os.path.join(C.data_dir, 'checkpoints', 'sequence_model.pth'))
+torch.save(model.state_dict(), os.path.join(C.data_dir, 'checkpoints', 'sequence_model_mp.pth'))
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

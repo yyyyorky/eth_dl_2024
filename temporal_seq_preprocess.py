@@ -34,11 +34,11 @@ model = MeshReduce(
     input_edge_features_dim=C.edge_features,
     output_node_features_dim=C.node_features,
     internal_width=C.latent_size,
-    message_passing_steps=C.message_passing_steps*2,
+    message_passing_steps=C.message_passing_steps,
     num_layers=C.num_layers
 ).to(C.device)
 
-state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder.pth'), weights_only=True)
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder_mp.pth'), weights_only=True)
 
 model.load_state_dict(state_dic)
 model.eval()
@@ -51,3 +51,8 @@ tsl_dataset = TemporalSequenceLatentDataset(encoder=model,
                                             produce_latent=True)
 print(tsl_dataset[0][0].shape)
 # %%
+tsl_dataset = TemporalSequenceLatentDataset(encoder=model, 
+                                            split='test', 
+                                            position_mesh=position_mesh, 
+                                            position_pivotal=position_pivotal,
+                                            produce_latent=True)

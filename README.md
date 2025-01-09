@@ -14,7 +14,7 @@ project_root/
 └── ...
 ```
 
-Before run model, please compute `latent_test.pt` and `latent_train.pt` using `utils.dataset.TemporalSequenceLatentDataset` with `produce_latent = True`
+Before run model, please compute `latent_test.pt` and `latent_train.pt` using `temporal_seq_preprocess.py` to produce latent using the corresponding autoencoder.
 
 # Env
 Create environment using conda
