@@ -12,10 +12,12 @@ C = Constant()
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 rollout_error_temporal = np.load(os.path.join(C.data_dir, 'result/rollout_error_temporal.npy'))
 rollout_error_mgn = np.load(os.path.join(C.data_dir, 'result/rollout_error_mgn.npy'))
+rollout_error_temporal_mp = np.load(os.path.join(C.data_dir, 'result/rollout_error_temporal_mp.npy'))
 # %%
 plt.figure()
 plt.plot(rollout_error_temporal, label='Temporal')
 plt.plot(rollout_error_mgn, label='MGN')
+plt.plot(rollout_error_temporal_mp, label='Temporal HMP')
 plt.yscale('log')
 plt.ylim(1e-2, 2)
 plt.legend()

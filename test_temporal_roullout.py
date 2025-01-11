@@ -37,7 +37,7 @@ test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 seq_model = SequenceModel(
     input_dim=C.token_size,
     input_context_dim= C.context_dim,
-    num_layers_decoder=C.temporal_docoder_layers*2,
+    num_layers_decoder=C.temporal_docoder_layers, #*2 for backup
     num_heads=8,
     dim_feedforward_scale=8,
     num_layers_context_encoder=C.num_layers,
@@ -45,7 +45,7 @@ seq_model = SequenceModel(
     num_layers_output_encoder=C.num_layers,
 ).to(C.device)
 
-state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'sequence_model_backup.pth'), weights_only=True)
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'sequence_model_mp.pth'), weights_only=True)
 seq_model.load_state_dict(state_dic)
 seq_model.eval()
 
@@ -55,11 +55,11 @@ mesh_reduced_model = MeshReduce(
     input_edge_features_dim=C.edge_features,
     output_node_features_dim=C.node_features,
     internal_width=C.latent_size,
-    message_passing_steps=C.message_passing_steps*2,
+    message_passing_steps=C.message_passing_steps, #*2 for backup
     num_layers=C.num_layers
 ).to(C.device)
 
-state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder_backup.pth'), weights_only=True)
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder_mp.pth'), weights_only=True)
 mesh_reduced_model.load_state_dict(state_dic)
 mesh_reduced_model.eval()
 
@@ -168,7 +168,7 @@ with torch.no_grad():
 # %%
 error_hist = error_record.mean(dim=-1).mean(dim=-1).cpu().numpy()
 plt.plot(error_hist)
-np.save(C.data_dir + 'result/rollout_error_temporal.npy', error_hist)
+np.save(C.data_dir + 'result/rollout_error_temporal_mp.npy', error_hist)
 
 
 
