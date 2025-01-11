@@ -12,6 +12,7 @@ import random
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from torch.cuda.amp import GradScaler, autocast
+from torch.utils.tensorboard import SummaryWriter
 
 C = Constant()
 
@@ -28,6 +29,9 @@ set_seed()
 retrain = True
 batch_size = 8
 num_epochs = 301
+
+# launch tensorboard writer
+writer = SummaryWriter('runs/experiment3')
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 train_dataset = EncoderDecoderDataset()
@@ -65,7 +69,9 @@ if retrain:
             loss = criterion(out['fluid'].node_attr, sample['fluid'].node_target)
             loss.backward()
             optimizer.step()
-            epoch_loss += loss.item()
+            epoch_loss += loss.item() * sample.num_graphs
+            writer.add_scalar('Loss/train', loss.item(), i + epoch * len(train_loader))
+        epoch_loss = epoch_loss / len(train_dataset)
         print(f'Epoch loss: {epoch_loss}')
         scheduler.step()
 else:

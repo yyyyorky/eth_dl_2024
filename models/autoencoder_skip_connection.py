@@ -34,6 +34,10 @@ class MeshReduce(nn.Module):
         self.num_layers = num_layers                                # 2
         self.k = k
         self.PivotalNorm = torch.nn.LayerNorm(output_node_features_dim)
+        
+        self.num_heads = 4
+        self.embedding_dim = 64
+        self.position_dim = 2
 
         self.encoder_processor = MeshGraphNet(
             output_size=output_node_features_dim,
@@ -56,7 +60,31 @@ class MeshReduce(nn.Module):
         )
         
         # get attention weights
-        self.spatial_attention = SpatialTransformer()
+        # self.spatial_attention = SpatialTransformer()
+        
+        self.feature_proj = nn.Linear(self.output_node_features_dim, self.embedding_dim)
+        self.position_proj = nn.Linear(self.position_dim, self.embedding_dim)
+
+        # Initialize MultiheadAttention layer
+        self.multihead_attn = nn.MultiheadAttention(embed_dim=self.embedding_dim, num_heads=self.num_heads, batch_first=True)
+        
+        # Initialize network weights
+        self._initialize_weights()
+        
+    def _initialize_weights(self):
+        # Kaiming initialization for linear layers
+        nn.init.kaiming_normal_(self.feature_proj.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.constant_(self.feature_proj.bias, 0)
+
+        nn.init.kaiming_normal_(self.position_proj.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.constant_(self.position_proj.bias, 0)
+
+        # Xavier initialization for MultiheadAttention weights
+        for param in self.multihead_attn.parameters():
+            if param.dim() > 1:
+                nn.init.xavier_uniform_(param)
+            
+
 
     def knn_interpolate(
         self,
@@ -127,7 +155,12 @@ class MeshReduce(nn.Module):
         )
 
         # TODO: sptaial attention
-        node_features = self.spatial_attention(positions=position_pivotal_batch.float(), properties=node_features)
+        # node_features = self.spatial_attention(positions=position_pivotal_batch.float(), properties=node_features)
+        query = self.feature_proj(node_features.reshape(-1, 256, 3)) + self.position_proj(position_pivotal_batch.float().reshape(-1, 256, 2))
+        key = query
+        value = query
+        _, attn_weights = self.multihead_attn(query, key, value)
+        node_features = (attn_weights @ node_features.reshape(-1, 256, 3)).reshape(-1, node_features.shape[-1])
         new_sample['fluid'].node_attr = node_features
         
         return new_sample
