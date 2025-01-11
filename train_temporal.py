@@ -50,7 +50,7 @@ model = SequenceModel(
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 model.train()
-epochs = C.num_epochs*250
+epochs = C.num_epochs*1000
 print_freq = 20
 optimizer = torch.optim.AdamW(
     model.parameters(),
@@ -96,7 +96,7 @@ for epoch in tqdm(range(epochs)):
    if epoch % print_freq == 0:
        print(f'Epoch {epoch}/{epochs}, loss: {epoch_loss:.6f}, lr: {scheduler.get_last_lr()[0]:.6f}')
 
-torch.save(model.state_dict(), os.path.join(C.data_dir, 'checkpoints', 'sequence_model.pth'))
+torch.save(model.state_dict(), os.path.join(C.data_dir, 'checkpoints', 'sequence_model_spatial.pth'))
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

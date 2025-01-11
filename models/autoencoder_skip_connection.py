@@ -119,7 +119,7 @@ class MeshReduce(nn.Module):
 
         return y.float(), x_idx, y_idx, weights
     
-    def downsample(self, sample, position_mesh, position_pivotal, batch_size):
+    def _downsample(self, sample, position_mesh, position_pivotal, batch_size):
         new_sample = sample.clone()
         # Get total number of nodes
         node_features = new_sample['fluid'].node_attr
@@ -165,7 +165,7 @@ class MeshReduce(nn.Module):
         
         return new_sample
     
-    def interpolate(self, sample, position_mesh, position_pivotal, batch_size):
+    def _interpolate(self, sample, position_mesh, position_pivotal, batch_size):
         sample = sample.clone()
         node_features = sample['fluid'].node_attr
         
@@ -204,7 +204,7 @@ class MeshReduce(nn.Module):
         
         return sample
 
-    def encode(self, sample, position_mesh, position_pivotal, batch_size):
+    def _encode(self, sample, position_mesh, position_pivotal, batch_size):
         sample = sample.clone()
         sample = self.encoder_processor(sample)
         node_features = self.PivotalNorm(sample['fluid'].node_attr)
@@ -212,7 +212,7 @@ class MeshReduce(nn.Module):
         
         return sample
 
-    def decode(self, sample, position_mesh, position_pivotal, batch_size):
+    def _decode(self, sample, position_mesh, position_pivotal, batch_size):
         
         sample = self.decoder_processor(sample)
         return sample
@@ -221,22 +221,33 @@ class MeshReduce(nn.Module):
         
         out1['fluid'].node_attr += out2['fluid'].node_attr
         return out1
+    
+    def encode(self, sample, position_mesh, position_pivotal, batch_size):
+        out = sample
+        out = self._encode(out, position_mesh, position_pivotal, batch_size)
+        out = self._downsample(out, position_mesh, position_pivotal, batch_size)
+        return out
+    
+    def decode(self, sample, position_mesh, position_pivotal, batch_size):
+        out = sample
+        out = self._interpolate(out, position_mesh, position_pivotal, batch_size)
+        return self._decode(out, position_mesh, position_pivotal, batch_size)
         
     
     def forward(self, sample, position_mesh, position_pivotal, batch_size):
         """Encodes and processes a multigraph, and returns node features."""
         out = sample
-        out1 = self.encode(out, position_mesh, position_pivotal, batch_size)
+        out1 = self._encode(out, position_mesh, position_pivotal, batch_size)
         
-        out2 = self.downsample(out1, position_mesh, position_pivotal, batch_size)
-        out2 = self.interpolate(out2, position_mesh, position_pivotal, batch_size)
+        out2 = self._downsample(out1, position_mesh, position_pivotal, batch_size) #[256,3]
+        out2 = self._interpolate(out2, position_mesh, position_pivotal, batch_size) #[1699,3]
         
         # remove skip connection during the training of autoencoder, only use skip connection when training temporal attention
         # out = self.residual_connection(out1, out2)
         # use when training autoencoder
         out = out2
 
-        return self.decode(out, position_mesh, position_pivotal, batch_size)
+        return self._decode(out, position_mesh, position_pivotal, batch_size)
 
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

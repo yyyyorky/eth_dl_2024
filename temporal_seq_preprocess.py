@@ -1,7 +1,7 @@
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 import os
 import sys
-from models.autoencoder import MeshReduce
+from models.autoencoder_skip_connection import MeshReduce
 import torch
 import torch.nn as nn
 from utils.dataset import TemporalSequenceLatentDataset, EncoderDecoderDataset
@@ -38,16 +38,22 @@ model = MeshReduce(
     num_layers=C.num_layers
 ).to(C.device)
 
-state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder.pth'), weights_only=True)
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder_skip.pth'), weights_only=True)
 
 model.load_state_dict(state_dic)
 model.eval()
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 tsl_dataset = TemporalSequenceLatentDataset(encoder=model, 
+                                            split='train', 
+                                            position_mesh=position_mesh, 
+                                            position_pivotal=position_pivotal,
+                                            produce_latent=True)
+
+tsl_dataset = TemporalSequenceLatentDataset(encoder=model, 
                                             split='test', 
                                             position_mesh=position_mesh, 
                                             position_pivotal=position_pivotal,
-                                            produce_latent=False)
+                                            produce_latent=True)
 print(tsl_dataset[0][0].shape)
 # %%

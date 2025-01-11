@@ -217,8 +217,6 @@ class TemporalSequenceLatentDataset(Dataset):
                  position_mesh=None,
                  position_pivotal=None,
                  produce_latent=True):
-        if not isinstance(encoder, MeshReduce) and produce_latent:
-            raise ValueError("encoder must be an instance of MeshReduce")
         if position_mesh == None or position_pivotal == None:
             raise ValueError("position_mesh and position_pivotal must be provided")
         super(TemporalSequenceLatentDataset, self).__init__()

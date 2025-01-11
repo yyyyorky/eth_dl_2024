@@ -25,7 +25,7 @@ def set_seed(seed = C.seed+7):
 set_seed()
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-test_dataset = EncoderDecoderDataset(split='train')
+test_dataset = EncoderDecoderDataset(split='test')
 test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
 position_mesh = torch.from_numpy(np.loadtxt(os.path.join(C.data_dir, "meshPosition_all.txt"))).to(C.device)
