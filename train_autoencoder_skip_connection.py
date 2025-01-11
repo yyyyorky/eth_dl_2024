@@ -47,7 +47,7 @@ model = MeshReduce(
     input_edge_features_dim=C.edge_features,
     output_node_features_dim=C.node_features,
     internal_width=C.latent_size,
-    message_passing_steps=C.message_passing_steps*2,
+    message_passing_steps=C.message_passing_steps,
     num_layers=C.num_layers
 ).to(C.device)
 
@@ -75,11 +75,11 @@ if retrain:
         print(f'Epoch loss: {epoch_loss}')
         scheduler.step()
 else:
-    model.load_state_dict(torch.load(C.data_dir + 'checkpoints/autoencoder.pth', weights_only=True))
+    model.load_state_dict(torch.load(C.data_dir + 'checkpoints/autoencoder_skip.pth', weights_only=True))
 
 model.eval()
 state_dict = model.state_dict()
-save_path = C.data_dir + 'checkpoints/autoencoder.pth'
+save_path = C.data_dir + 'checkpoints/autoencoder_skip.pth'
 torch.save(state_dict, save_path)
 
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
