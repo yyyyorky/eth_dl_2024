@@ -1,5 +1,7 @@
 # eth_dl_2024
 
+If you have any questions or problems regarding reproduction, please contact <yiyyan@ethz.ch>
+
 # Data 
 
 Download data from https://polybox.ethz.ch/index.php/s/cnHDWlZ9uePKhso
@@ -9,7 +11,11 @@ Put all the file inside the archive at `./data` so that it looks like
 ```bash
 project_root/
 ├── data/
+│   ├── checkpoints/
+│   ├── result/
 │   ├── rawData.npy
+│   ├── meshPosition_all.text
+│   ├── meshPosition_pivotal.txt
 │   └── ...
 └── ...
 ```
