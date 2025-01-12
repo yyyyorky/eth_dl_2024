@@ -163,11 +163,11 @@ with torch.no_grad():
 
 
 # %%
-error_hist = error_record.mean(dim=-1).mean(dim=-1).cpu().numpy()
+#error_hist = error_record.mean(dim=-1).mean(dim=-1).cpu().numpy()
 from matplotlib import pyplot as plt
-plt.plot(error_hist)
-np.save(C.data_dir + 'result/rollout_error_temporal_spatial.npy', error_hist)
-
+#plt.plot(error_hist)
+#np.save(C.data_dir + 'result/rollout_error_temporal_spatial.npy', error_hist)
+np.save('data/rollout_result_spatial.npy', decoded_out)
 
 
 # %%

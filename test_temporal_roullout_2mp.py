@@ -164,10 +164,10 @@ with torch.no_grad():
 
 
 # %%
-error_hist = error_record.mean(dim=-1).mean(dim=-1).cpu().numpy()
-plt.plot(error_hist)
-np.save(C.data_dir + 'result/rollout_error_temporal_2mp.npy', error_hist)
-
+#error_hist = error_record.mean(dim=-1).mean(dim=-1).cpu().numpy()
+#plt.plot(error_hist)
+#np.save(C.data_dir + 'result/rollout_error_temporal_2mp.npy', error_hist)
+np.save('data/rollout_result_2mp.npy', decoded_out)
 
 
 # %%
