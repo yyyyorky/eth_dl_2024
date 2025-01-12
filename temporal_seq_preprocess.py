@@ -1,7 +1,7 @@
 #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 import os
 import sys
-from models.autoencoder_skip_connection import MeshReduce
+from models.autoencoder_spatial import MeshReduce
 import torch
 import torch.nn as nn
 from utils.dataset import TemporalSequenceLatentDataset, EncoderDecoderDataset
