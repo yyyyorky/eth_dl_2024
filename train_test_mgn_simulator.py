@@ -101,8 +101,10 @@ with torch.no_grad():
         numerator = torch.norm(result - target, dim=1)
         relative_l2_error_hist += torch.mean(numerator / denominator, dim=-1)
 relative_l2_error_hist /= len(test_loader)
+relative_l2_error_hist = relative_l2_error_hist.cpu().numpy()
 #%%
-plt.plot(relative_l2_error_hist.cpu().numpy())
+plt.plot(relative_l2_error_hist)
+np.save(C.data_dir + 'result/rollout_error_mgn.npy', relative_l2_error_hist)
 
 
 

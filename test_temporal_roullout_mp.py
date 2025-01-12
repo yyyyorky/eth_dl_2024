@@ -3,16 +3,15 @@ import os
 import sys
 import torch
 import torch.nn as nn
-from utils.dataset import TemporalSequenceLatentDataset, EncoderDecoderDataset
+from utils.dataset import EncoderDecoderDataset
 from torch_geometric.loader import DataLoader
 from utils.constant import Constant
 import numpy as np
 import random
 from tqdm import tqdm
 from models.sequence_model import SequenceModel
-from torch.cuda.amp import GradScaler, autocast
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from models.autoencoder import MeshReduce
+from matplotlib import pyplot as plt
 
 C = Constant()
 
@@ -44,7 +43,7 @@ seq_model = SequenceModel(
     num_layers_output_encoder=C.num_layers,
 ).to(C.device)
 
-state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'sequence_model.pth'), weights_only=True)
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'sequence_model_mp.pth'), weights_only=True)
 seq_model.load_state_dict(state_dic)
 seq_model.eval()
 
@@ -58,7 +57,7 @@ mesh_reduced_model = MeshReduce(
     num_layers=C.num_layers
 ).to(C.device)
 
-state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder_backup.pth'), weights_only=True)
+state_dic = torch.load(os.path.join(C.data_dir, 'checkpoints', 'autoencoder_mp.pth'), weights_only=True)
 mesh_reduced_model.load_state_dict(state_dic)
 mesh_reduced_model.eval()
 
@@ -81,12 +80,21 @@ rollout_error_u = 0
 rollout_error_v = 0
 rollout_error_p = 0
 
+sum_rollout_error_u = 0
+sum_rollout_error_v = 0
+sum_rollout_error_p = 0
+iteration = 0
+error_record = torch.zeros(sequence_len-1, len(test_loader)//sequence_len, 3)
+
 # Disable gradient computation for efficiency
 with torch.no_grad():
     # Iterate over the test dataset
     for i, sample in enumerate(tqdm(test_loader)):
         # Encode the current sample using the mesh-reduced model
         z_sample = mesh_reduced_model.encode(sample, position_mesh, position_pivotal, 1).clone()
+
+        sid = i // sequence_len
+        tid = i % sequence_len
         
         # Check if we are at the start of a new sequence
         if i % sequence_len == 0:
@@ -114,19 +122,25 @@ with torch.no_grad():
             denominator_u = torch.norm(denormalize(sample['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0]))
             numerator_u = torch.norm(denormalize(sample['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0]) - 
                                        denormalize(decode_out['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0]))
-            rollout_error_u += torch.mean(numerator_u / denominator_u).item()
+            error_u = torch.mean(numerator_u / denominator_u).item()
+            error_record[tid-1, sid, 0] = error_u
+            rollout_error_u += error_u      
             
             # Error for v
             denominator_v = torch.norm(denormalize(sample['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1]))
             numerator_v = torch.norm(denormalize(sample['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1]) - 
                                        denormalize(decode_out['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1]))
-            rollout_error_v += torch.mean(numerator_v / denominator_v).item()
+            error_v = torch.mean(numerator_v / denominator_v).item()
+            error_record[tid-1, sid, 1] = error_v
+            rollout_error_v += error_v
             
             # Error for p
             denominator_p = torch.norm(denormalize(sample['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2]))
             numerator_p = torch.norm(denormalize(sample['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2]) - 
                                        denormalize(decode_out['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2]))
-            rollout_error_p += torch.mean(numerator_p / denominator_p).item()
+            error_p = torch.mean(numerator_p / denominator_p).item()
+            error_record[tid-1, sid, 2] = error_p
+            rollout_error_p += error_p
         
         # At the end of the sequence, normalize and print the accumulated errors
         if i % sequence_len == sequence_len - 1:
@@ -135,10 +149,25 @@ with torch.no_grad():
             rollout_error_p /= (sequence_len - 1)
             print(f'At {i}, Rollout Error u: {rollout_error_u}, Rollout Error v: {rollout_error_v}, Rollout Error p: {rollout_error_p}')
             
+            sum_rollout_error_u += rollout_error_u
+            sum_rollout_error_v += rollout_error_v
+            sum_rollout_error_p += rollout_error_p
+            
+            iteration += 1
+            
             # Reset errors for the next sequence
             rollout_error_u = 0
             rollout_error_v = 0
             rollout_error_p = 0
+    
+    print(f'Totally, Rollout Error u: {sum_rollout_error_u / iteration}, Rollout Error v: {sum_rollout_error_v / iteration}, Rollout Error p: {sum_rollout_error_p / iteration}')
+
+
+# %%
+error_hist = error_record.mean(dim=-1).mean(dim=-1).cpu().numpy()
+plt.plot(error_hist)
+np.save(C.data_dir + 'result/rollout_error_temporal_mp.npy', error_hist)
+
 
 
 # %%
