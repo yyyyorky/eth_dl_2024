@@ -1,6 +1,6 @@
 # eth_dl_2024
 
-If you have any questions or problems regarding reproduction, please contact <yiyyan@ethz.ch>
+If you have any questions or problems regarding reproduction, please contact <yiyyan@ethz.ch>.
 
 # Data 
 
@@ -19,6 +19,8 @@ project_root/
 │   └── ...
 └── ...
 ```
+
+Modify `Constant.root_dir` in `utils/constant.py` to the absolute path of project directory.
 
 # Env
 Create environment using conda
@@ -39,4 +41,4 @@ conda install pytorch-scatter -c pyg
 conda install pytorch-cluster -c pyg
 ```
 # Result GIF animation
-The result GIF animation can be found in https://polybox.ethz.ch/index.php/s/PFrIO6Rpys8T01Y
+The result GIF animation can be found in https://polybox.ethz.ch/index.php/s/PFrIO6Rpys8T01Y.
