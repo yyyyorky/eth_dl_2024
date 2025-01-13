@@ -14,7 +14,7 @@ project_root/
 │   ├── checkpoints/
 │   ├── result/
 │   ├── rawData.npy
-│   ├── meshPosition_all.text
+│   ├── meshPosition_all.txt
 │   ├── meshPosition_pivotal.txt
 │   └── ...
 └── ...
