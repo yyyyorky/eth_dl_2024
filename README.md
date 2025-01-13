@@ -38,3 +38,6 @@ or
 conda install pytorch-scatter -c pyg
 conda install pytorch-cluster -c pyg
 ```
+# Visualization
+
+Get meshgrid plots for all 4 models from  https://polybox.ethz.ch/index.php/s/yZGBaAnA1EfFy1D
