@@ -50,4 +50,4 @@ conda install pytorch-cluster -c pyg
 
 ## Result GIF animation
 
-The result GIF animation can be found in `./data/visualization`. 
+The result GIF animation can be found in `./data/meshgrid`. 
