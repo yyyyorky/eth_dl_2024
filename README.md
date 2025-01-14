@@ -13,6 +13,7 @@ project_root/
 ├── data/
 │   ├── checkpoints/
 │   ├── result/
+│   ├── meshgrid/
 │   ├── rawData.npy
 │   ├── meshPosition_all.txt
 │   ├── meshPosition_pivotal.txt
