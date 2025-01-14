@@ -42,4 +42,4 @@ conda install pytorch-scatter -c pyg
 conda install pytorch-cluster -c pyg
 ```
 # Result GIF animation
-The result GIF animation can be found in https://polybox.ethz.ch/index.php/s/PFrIO6Rpys8T01Y.
+The result GIF animation can be found in `./data/visualization`.

@@ -1,11 +1,0 @@
---2025-01-04 18:02:00--  https://polybox.ethz.ch/index.php/s/tTwHrfb12lZeTV4/download?path=%2F
-Resolving polybox.ethz.ch (polybox.ethz.ch)... 129.132.71.243
-Connecting to polybox.ethz.ch (polybox.ethz.ch)|129.132.71.243|:443... connected.
-HTTP request sent, awaiting response... 200 OK
-Length: unspecified [application/zip]
-Saving to: ‘download?path=%2F’
-
-download?path=%2F                                                                 [<=>                                                                                                                                                                                             ]       0  --.-KB/s               download?path=%2F                                                                 [ <=>                                                                                                                                                                                            ]   8.37M  --.-KB/s    in 0.1s    
-
-2025-01-04 18:02:00 (70.3 MB/s) - ‘download?path=%2F’ saved [8777162]
-
