@@ -17,7 +17,7 @@ def parse_args():
     parser.add_argument('--param', type=int, help='Param idx: from 0 to 49',default=0)
     parser.add_argument('--result_file_name', type=str,help="mgn result file name(Please put the result file in the data folder)"
     ,default='rollout_result_vanilla_mgn.npy')
-    parser.add_argument('--frame_num', type=int)
+    parser.add_argument('--frame_idx', type=int)
     return parser.parse_args()
 
 
@@ -26,6 +26,7 @@ def main():
     args = parse_args()
     C = Constant()
     param_idx = args.param
+    frame_idx = args.frame_idx
     result_file_name = C.data_dir + 'result/'+args.result_file_name
     param_idx_ls = [i for i in range(101) if i % 2 ==1]
     data_path = C.data_dir + 'rawData.npy'
@@ -58,15 +59,15 @@ def main():
     model = result_path.split('_')[-1].split('.')[0]
     if model == 'mgn':
         titles = [
-            r'Ground Truth: $u_t$', r'MeshGraphNet: $u_t$',
-            r'Ground Truth: $v_t$', r'MeshGraphNet: $v_t$',
-            r'Ground Truth: $p_t$', r'MeshGraphNet: $p_t$'
+            r'Ground Truth: $u$', r'MeshGraphNet: $u$',
+            r'Ground Truth: $v$', r'MeshGraphNet: $v$',
+            r'Ground Truth: $p$', r'MeshGraphNet: $p$'
         ]
     else:
         titles = [
-            r'Ground Truth: $u_t$', rf'Temporal-{model}: $u_t$',
-            r'Ground Truth: $v_t$', rf'Temporal-{model}: $v_t$',
-            r'Ground Truth: $p_t$', rf'Temporal-{model}: $p_t$'
+            r'Ground Truth: $u$', rf'Temporal-{model}: $u$',
+            r'Ground Truth: $v$', rf'Temporal-{model}: $v$',
+            r'Ground Truth: $p$', rf'Temporal-{model}: $p$'
         ]
 
 
@@ -76,8 +77,7 @@ def main():
     for i, ax in enumerate(axes.flat):
         ax.set_xlim(-1, 7)
         ax.set_ylim(-2, 2)
-        ax.set_title(titles[i], fontdict=title_font) 
-        ax.tick_params(axis='both', labelsize=tick_fontsize)  
+        ax.set_title(titles[i]) 
 
     x_center, y_center = 0,0
     radius = 0.5
@@ -124,38 +124,10 @@ def main():
             )
         meshes.append(mesh)
 
-    def update(frame):
-        print(f"This is frame {str(frame)}")
-        for i, mesh in enumerate(meshes):
-            # Get the appropriate data based on whether it's actual or predicted
-            if i % 2 == 0:
-                data = node_states[frame, :, i//2]
-            else:
-                data = node_states_predict[frame, :, i//2]
-                
-            # Apply masking and interpolation
-            mask = mask_inside_circle(position_data[:, 0], position_data[:, 1], radius, x_center, y_center)
-            interpolated = griddata(position_data[mask], data[mask], (grid_x, grid_y), method='cubic')
-            
-            # Apply circle mask
-            circle_mask = np.sqrt((grid_x - x_center)**2 + (grid_y - y_center)**2) <= radius
-            interpolated[circle_mask] = np.nan
-            
-            # Apply Gaussian filter
-            interpolated = gaussian_filter(interpolated, sigma=0.1)
-            
-            # Update the mesh
-            mesh.set_array(interpolated.ravel())
-        
-        return meshes
 
-
-    # Create the animation
-    frame_num = args.frame_num if args.frame_num else len(node_states)
-    ani = FuncAnimation(fig, update, frames=frame_num, interval=100, blit=True)
 
     # To save the animation as a GIF
-    ani.save(C.data_dir+f'meshgrid/node_state_time_series_{model}.gif', writer='Pillow', fps=30)
+    plt.savefig(C.data_dir+f'meshgrid/{model}_{frame_idx}.pdf')
 
     plt.show()
 
