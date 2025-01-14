@@ -8,3 +8,7 @@ data/
 */.pytest
 */.mypy
 */.DS_Store
+.DS_Store
+*/.env
+*/.env.*
+*/.venv
