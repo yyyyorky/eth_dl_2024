@@ -85,6 +85,7 @@ sum_rollout_error_v = 0
 sum_rollout_error_p = 0
 iteration = 0
 error_record = torch.zeros(sequence_len-1, len(test_loader)//sequence_len, 3)
+prediciton_record = torch.zeros(sequence_len-1, len(test_loader)//sequence_len, C.nodes_per_mesh, 3)
 
 # Disable gradient computation for efficiency
 with torch.no_grad():
@@ -119,27 +120,34 @@ with torch.no_grad():
             # Calculate rollout errors for each component (u, v, p)
             
             # Error for u
-            denominator_u = torch.norm(denormalize(sample['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0]))
-            numerator_u = torch.norm(denormalize(sample['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0]) - 
-                                       denormalize(decode_out['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0]))
+            predicted_u = denormalize(decode_out['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0])
+            target_u = denormalize(sample['fluid'].node_attr[:, 0], test_dataset.node_stats['node_std'][0], test_dataset.node_stats['node_mean'][0])
+            denominator_u = torch.norm(target_u)
+            numerator_u = torch.norm(target_u - 
+                                       predicted_u)
             error_u = torch.mean(numerator_u / denominator_u).item()
             error_record[tid-1, sid, 0] = error_u
+            prediciton_record[tid-1, sid, :, 0] = predicted_u
             rollout_error_u += error_u      
             
             # Error for v
-            denominator_v = torch.norm(denormalize(sample['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1]))
-            numerator_v = torch.norm(denormalize(sample['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1]) - 
-                                       denormalize(decode_out['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1]))
+            predicted_v = denormalize(decode_out['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1])
+            target_v = denormalize(sample['fluid'].node_attr[:, 1], test_dataset.node_stats['node_std'][1], test_dataset.node_stats['node_mean'][1])
+            denominator_v = torch.norm(target_v)
+            numerator_v = torch.norm(target_v - predicted_v)
             error_v = torch.mean(numerator_v / denominator_v).item()
             error_record[tid-1, sid, 1] = error_v
+            prediciton_record[tid-1, sid, :, 1] = predicted_v
             rollout_error_v += error_v
             
             # Error for p
-            denominator_p = torch.norm(denormalize(sample['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2]))
-            numerator_p = torch.norm(denormalize(sample['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2]) - 
-                                       denormalize(decode_out['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2]))
+            predicted_p = denormalize(decode_out['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2])
+            target_p = denormalize(sample['fluid'].node_attr[:, 2], test_dataset.node_stats['node_std'][2], test_dataset.node_stats['node_mean'][2])
+            denominator_p = torch.norm(target_p)
+            numerator_p = torch.norm(target_p - predicted_p)
             error_p = torch.mean(numerator_p / denominator_p).item()
             error_record[tid-1, sid, 2] = error_p
+            prediciton_record[tid-1, sid, :, 2] = predicted_p
             rollout_error_p += error_p
         
         # At the end of the sequence, normalize and print the accumulated errors
@@ -164,10 +172,15 @@ with torch.no_grad():
 
 
 # %%
-#error_hist = error_record.mean(dim=-1).mean(dim=-1).cpu().numpy()
-#plt.plot(error_hist)
-#np.save(C.data_dir + 'result/rollout_error_temporal_2mp.npy', error_hist)
-np.save('data/rollout_result_2mp.npy', decoded_out)
+error_hist = error_record.mean(dim=-1).mean(dim=-1).cpu().numpy()
+plt.plot(error_hist)
+np.save(C.data_dir + 'result/rollout_error_temporal_2mp.npy', error_hist)
+
+prediciton_record = prediciton_record.cpu().numpy()
+#%%
+prediciton_record = prediciton_record.transpose(1, 0, 2, 3)
+np.save(C.data_dir + 'result/prediction_temporal_2mp.npy', prediciton_record)
+
 
 
 # %%

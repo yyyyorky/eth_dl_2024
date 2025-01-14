@@ -1,6 +1,6 @@
 # eth_dl_2024
 
-If you have any questions or problems regarding reproduction, please contact <yiyyan@ethz.ch>
+If you have any questions or problems regarding reproduction, please contact <yiyyan@ethz.ch>.
 
 # Data 
 
@@ -14,11 +14,13 @@ project_root/
 │   ├── checkpoints/
 │   ├── result/
 │   ├── rawData.npy
-│   ├── meshPosition_all.text
+│   ├── meshPosition_all.txt
 │   ├── meshPosition_pivotal.txt
 │   └── ...
 └── ...
 ```
+
+Modify `Constant.root_dir` in `utils/constant.py` to the absolute path of project directory.
 
 # Env
 Create environment using conda
@@ -38,6 +40,5 @@ or
 conda install pytorch-scatter -c pyg
 conda install pytorch-cluster -c pyg
 ```
-# Visualization
-
-Get meshgrid plots for all 4 models from  https://polybox.ethz.ch/index.php/s/yZGBaAnA1EfFy1D
+# Result GIF animation
+The result GIF animation can be found in https://polybox.ethz.ch/index.php/s/PFrIO6Rpys8T01Y.
