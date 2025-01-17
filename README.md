@@ -60,4 +60,8 @@ In `./`, we have the code for training and testing of different models.
 
 All the result could be produced using `test_*.py` and plot using `plot_rollout_error.py`.
 
-The result GIF animation can be found in `./data/meshgrid`. 
+The provided result GIF animation can be found in `./data/meshgrid`. 
+
+It can be also acquired for certain trajectory or frame using the code inside `./visualization`.
+
+
