@@ -48,6 +48,16 @@ conda install pytorch-scatter -c pyg
 conda install pytorch-cluster -c pyg
 ```
 
-## Result GIF animation
+## Code Structure
+
+All the model and block definition could be found in `./models`.
+
+In `./utils/`, there are definition of constant, dataset, etc.
+
+In `./`, we have the code for training and testing of different models.
+
+## Result
+
+All the result could be produced using test_*.py and plot using `plot_rollout_error.py`.
 
 The result GIF animation can be found in `./data/meshgrid`. 
