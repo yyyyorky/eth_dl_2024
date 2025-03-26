@@ -1,5 +1,7 @@
 # ETH DL 2024 project: Spatial and Temporal Attention to Improve Graph-Based Physical Simulation
 
+The report can be found in https://openreview.net/pdf?id=5s9DKGVHI6
+
 If you have any questions or problems regarding reproduction, please contact <yiyyan@ethz.ch>.
 
 ## Data
